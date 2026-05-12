@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.local
+.discord-creds.json
+.DS_Store
+.zenflow
+.zenflow-attachments
+*.log
+dist
+build
+.cache

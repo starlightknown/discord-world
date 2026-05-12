@@ -1,0 +1,2747 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Discord World — 3D Social Explorer</title>
+<style>
+  :root{
+    --ink:#3b2a4a; --ink-soft:#6b5476; --paper:#fff7fb;
+    --rose:#ffb3d9; --lilac:#cdb4ff; --moss:#a8d8a8; --gold:#ffd485;
+    --discord:#5865F2;
+  }
+  html,body{margin:0;height:100%;background:#0d0716;color:var(--ink);font-family:"Comic Sans MS","Chalkboard SE","Segoe UI",sans-serif;overflow:hidden}
+  #app{position:fixed;inset:0}
+  .glass{background:linear-gradient(180deg,rgba(255,247,251,.92),rgba(255,235,247,.85));border:1px solid rgba(255,180,220,.5);border-radius:16px;box-shadow:0 4px 24px rgba(120,60,140,.18),inset 0 0 0 1px rgba(255,255,255,.5)}
+  #hud{position:fixed;top:14px;left:14px;padding:12px 16px;font-size:12px;line-height:1.55;pointer-events:none;user-select:none;max-width:360px;color:var(--ink)}
+  #hud b{color:#a14ec6}
+  #hud .sparkle{display:inline-block;animation:twinkle 2s infinite}
+  @keyframes twinkle{0%,100%{opacity:.4;transform:scale(.9)}50%{opacity:1;transform:scale(1.1)}}
+  #me{position:fixed;top:14px;right:14px;display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:12px;color:var(--ink)}
+  #me img{width:24px;height:24px;border-radius:50%;border:2px solid var(--rose)}
+  #me button{background:transparent;border:0;color:var(--ink-soft);cursor:pointer;font-size:12px;padding:0 4px;font-family:inherit}
+  #me button:hover{color:#d04a8a}
+  #fps{position:fixed;bottom:14px;right:14px;padding:6px 12px;font-size:11px;font-variant-numeric:tabular-nums;color:var(--ink-soft)}
+  #island{position:fixed;bottom:14px;left:14px;padding:8px 14px;font-size:12px;color:var(--ink);font-weight:bold}
+  #island .pin{margin-right:6px}
+  #prompt{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);padding:10px 18px;font-size:13px;color:var(--ink);display:none;animation:bob 2s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-4px)}}
+  #enterBtn{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);padding:14px 28px;border:0;border-radius:999px;background:var(--discord);color:#fff;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer;display:none;box-shadow:0 4px 0 #4754d6,0 8px 18px rgba(88,101,242,.45);z-index:5;pointer-events:auto}
+  #enterBtn:hover{transform:translateX(-50%) translateY(-2px)}
+  #enterBtn:active{transform:translateX(-50%) translateY(2px);box-shadow:0 2px 0 #4754d6}
+  kbd{display:inline-block;min-width:18px;padding:2px 7px;border-radius:6px;background:#fff;border:1px solid #e5b8d8;border-bottom-width:2px;color:#7a4d8a;font-family:inherit;font-size:11px;text-align:center;font-weight:bold}
+
+  /* login blocker */
+  #blocker{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 30%,#ffd9ec 0%,#caa6ff 45%,#7d6ad8 100%);z-index:10}
+  #blocker .panel{padding:34px 42px;text-align:center;max-width:480px}
+  #blocker h1{margin:0 0 8px;font-size:28px;color:var(--ink);text-shadow:0 1px 0 #fff}
+  #blocker p{margin:6px 0;font-size:13px;color:var(--ink-soft);line-height:1.6}
+  .btn{display:inline-block;margin-top:14px;padding:12px 22px;border:0;border-radius:999px;background:var(--discord);color:#fff;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer;text-decoration:none;box-shadow:0 4px 0 #4754d6,0 8px 16px rgba(88,101,242,.4);transition:transform .12s}
+  .btn:hover{transform:translateY(-2px)}
+  .btn:active{transform:translateY(2px);box-shadow:0 2px 0 #4754d6}
+  .btn.secondary{background:#fff;color:#a14ec6;box-shadow:0 4px 0 #e5b8d8,0 8px 16px rgba(200,120,180,.25);margin-left:8px}
+  .tag{display:inline-block;margin-top:10px;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.6);font-size:11px;color:#a14ec6;font-weight:bold}
+  .keys{margin-top:18px;display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:12px;text-align:left;color:var(--ink-soft)}
+  #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,235,247,.85);z-index:20;font-size:14px;color:#a14ec6;font-weight:bold}
+
+  /* in-app OAuth setup modal */
+  #setup{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,5,30,.55);z-index:40;backdrop-filter:blur(6px)}
+  #setup .card{padding:28px 32px;width:min(560px,92vw);text-align:left}
+  #setup h2{margin:0 0 6px;font-size:22px;color:var(--ink)}
+  #setup p{font-size:12.5px;color:var(--ink-soft);line-height:1.55;margin:6px 0}
+  #setup ol{font-size:12.5px;color:var(--ink-soft);padding-left:20px;margin:8px 0}
+  #setup ol li{margin:3px 0}
+  #setup label{display:block;font-size:12px;color:var(--ink);font-weight:bold;margin:12px 0 4px}
+  #setup input[type=text],#setup input[type=password]{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #e5b8d8;border-radius:10px;font-family:inherit;font-size:13px;background:#fff;color:var(--ink);outline:none}
+  #setup input:focus{border-color:#cdb4ff;box-shadow:0 0 0 3px rgba(205,180,255,.3)}
+  #setup .row{display:flex;gap:10px;align-items:center;margin-top:18px;justify-content:flex-end}
+  #setup code{background:#fff5e0;padding:2px 6px;border-radius:6px;font-size:11.5px;color:#8a6d3b;border:1px solid #ffd485;user-select:all}
+  #setup .err{display:none;margin-top:10px;padding:8px 12px;border-radius:8px;background:#ffe5e5;color:#a14e4e;border:1px solid #ffb1b1;font-size:12px}
+  #setup .ok{display:none;margin-top:10px;padding:8px 12px;border-radius:8px;background:#e7f8e0;color:#3a7a3a;border:1px solid #a8d8a8;font-size:12px}
+
+  /* chat overlay */
+  #chat{position:fixed;inset:0;display:none;z-index:30;backdrop-filter:blur(4px);background:radial-gradient(ellipse at center,rgba(255,217,236,.4),rgba(125,106,216,.35))}
+  #chat .window{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(820px,92vw);height:min(580px,86vh);display:grid;grid-template-columns:200px 1fr;border-radius:18px;overflow:hidden}
+  #chat .sidebar{background:linear-gradient(180deg,#f7e8ff,#ffe2f0);border-right:1px solid rgba(200,150,200,.3);padding:14px 8px;overflow-y:auto}
+  #chat .sidebar h3{margin:4px 8px 10px;font-size:14px;color:var(--ink);display:flex;align-items:center;gap:6px}
+  #chat .ch{display:block;width:100%;padding:8px 12px;margin:2px 0;border:0;background:transparent;border-radius:10px;text-align:left;font-family:inherit;font-size:13px;color:var(--ink-soft);cursor:pointer}
+  #chat .ch:hover{background:rgba(255,255,255,.6)}
+  #chat .ch.active{background:#fff;color:var(--ink);font-weight:bold;box-shadow:0 2px 0 #e5b8d8}
+  #chat .ch .hash{color:#b48bc7;margin-right:4px}
+  #chat .main{display:flex;flex-direction:column;background:linear-gradient(180deg,#fff7fb,#fdebf3)}
+  #chat .header{padding:12px 18px;border-bottom:1px solid rgba(200,150,200,.25);display:flex;align-items:center;justify-content:space-between;color:var(--ink);font-weight:bold}
+  #chat .close{background:transparent;border:0;font-size:18px;cursor:pointer;color:var(--ink-soft);font-family:inherit}
+  #chat .close:hover{color:#d04a8a}
+  #chat .messages{flex:1;overflow-y:auto;padding:14px 18px;font-size:13px;line-height:1.5;color:var(--ink)}
+  #chat .msg{display:flex;gap:10px;margin:8px 0}
+  #chat .msg img{width:28px;height:28px;border-radius:50%;border:2px solid #fff;flex:0 0 auto}
+  #chat .msg .who{font-weight:bold;color:#a14ec6;font-size:12px}
+  #chat .msg .body{background:#fff;padding:8px 12px;border-radius:14px;border-top-left-radius:4px;box-shadow:0 1px 0 #e5b8d8;color:var(--ink);max-width:80%}
+  #chat .msg.local .body{background:#e8f1ff}
+  #chat .composer{display:flex;gap:8px;padding:12px 16px;border-top:1px solid rgba(200,150,200,.25);background:rgba(255,255,255,.5)}
+  #chat input[type=text]{flex:1;padding:10px 14px;border:1px solid #e5b8d8;border-radius:999px;font-family:inherit;font-size:13px;background:#fff;color:var(--ink);outline:none}
+  #chat input[type=text]:focus{border-color:#cdb4ff;box-shadow:0 0 0 3px rgba(205,180,255,.3)}
+  #chat .send{background:var(--discord);color:#fff;border:0;border-radius:999px;padding:0 18px;font-family:inherit;font-weight:bold;cursor:pointer;box-shadow:0 3px 0 #4754d6}
+  #chat .send:active{transform:translateY(2px);box-shadow:0 1px 0 #4754d6}
+  #chat .empty{padding:40px;text-align:center;color:var(--ink-soft);font-size:13px}
+  #chat .notice{margin:8px 18px;padding:8px 12px;border-radius:10px;background:#fff5e0;color:#8a6d3b;font-size:12px;border:1px solid #ffd485}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="hud" class="glass" style="display:none">
+  <b><span class="sparkle">✨</span> Discord World</b> — fairy realm<br/>
+  <kbd>WASD</kbd> glide &middot; <kbd>Shift</kbd> dash &middot; <kbd>Space</kbd> rise &middot; <kbd>Ctrl</kbd> descend &middot; <kbd>T</kbd> chat &middot; <kbd>Esc</kbd> free cursor
+</div>
+<button id="enterBtn">✨ Enter <span id="enterBtn-name">#general</span></button>
+<div id="me" class="glass" style="display:none">
+  <img id="me-avatar" alt="" />
+  <span id="me-name">—</span>
+  <button id="logout">logout</button>
+</div>
+<div id="fps" class="glass" style="display:none">— fps</div>
+<div id="island" class="glass" style="display:none"><span class="pin">🌸</span><span id="island-name">the overworld</span></div>
+<div id="prompt" class="glass">✨ Press <kbd>T</kbd> to enter <span id="prompt-name">#general</span></div>
+
+<div id="chat">
+  <div class="window glass">
+    <div class="sidebar">
+      <h3>🏝 <span id="chat-server">island</span></h3>
+      <div id="chat-channels"></div>
+    </div>
+    <div class="main">
+      <div class="header">
+        <span><span style="color:#b48bc7">#</span> <span id="chat-channel-name">general</span></span>
+        <button class="close" id="chat-close">✕</button>
+      </div>
+      <div id="chat-notice" class="notice" style="display:none"></div>
+      <div class="messages" id="chat-messages"></div>
+      <form class="composer" id="chat-form">
+        <input type="text" id="chat-input" placeholder="Whisper to the channel…" autocomplete="off" maxlength="2000" />
+        <button class="send" type="submit">Send</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="blocker">
+  <div class="panel glass" id="login-panel">
+    <h1>🦋 Discord World 🌷</h1>
+    <p>A whimsical realm where your Discord servers grow as floating islands —<br/>with waterfalls, butterflies, and grass to touch.</p>
+    <p style="font-size:11px;color:#8a93a8;margin-top:14px">
+      Needs <code>identify</code> + <code>guilds</code> scopes. Tokens never leave the server.
+    </p>
+    <p id="oauth-notice" style="display:none;font-size:12px;color:#a14e4e;background:#fff5e0;border:1px solid #ffd485;border-radius:10px;padding:10px 14px;margin-top:14px">
+      ⚠ Discord OAuth isn't configured on this server (missing <code>DISCORD_CLIENT_ID</code>).<br/>
+      Hop into the <b>demo realm</b> below to explore.
+    </p>
+    <a class="btn" href="/auth/login" id="login-link">Login with Discord</a>
+    <button class="btn secondary" id="demo-btn" type="button">Visit demo realm</button>
+    <div style="margin-top:14px"><button id="setup-btn" type="button" style="background:transparent;border:0;color:#a14ec6;font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline">⚙ Setup Discord login (no .env needed)</button></div>
+    <div class="keys">
+      <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>glide through the sky</span>
+      <span><kbd>Shift</kbd></span><span>dash</span>
+      <span><kbd>Space</kbd></span><span>rise</span>
+      <span><kbd>Ctrl</kbd></span><span>descend</span>
+      <span><kbd>T</kbd></span><span>open channel chat</span>
+      <span>mouse</span><span>look around</span>
+      <span><kbd>Esc</kbd></span><span>release pointer</span>
+    </div>
+  </div>
+
+  <div class="panel glass" id="enter-panel" style="display:none">
+    <h1>🌸 Welcome, <span id="enter-name">friend</span> 🌸</h1>
+    <p>We grew <b id="enter-count">0</b> islands from your servers.</p>
+    <p style="font-size:12px;color:var(--ink-soft)">Step onto the glowing portals to chat in real Discord channels.</p>
+    <span class="tag">✨ Click anywhere to enter ✨</span>
+  </div>
+</div>
+
+<div id="loading">🌷 Gathering your islands… 🌷</div>
+
+<div id="setup">
+  <div class="card glass">
+    <h2>⚙ Setup Discord login</h2>
+    <p>Skip the <code>.env</code> file — paste your Discord App's <b>Client ID</b> and <b>Client Secret</b> here. They live in this server's memory only (not on disk).</p>
+    <ol>
+      <li>Open the <a href="https://discord.com/developers/applications" target="_blank" rel="noreferrer">Discord Developer Portal</a> → <b>New Application</b>.</li>
+      <li>Go to <b>OAuth2 → General</b>. Add this Redirect URL: <code id="setup-redirect">http://localhost:3000/auth/callback</code></li>
+      <li>Copy the <b>Client ID</b> and <b>Client Secret</b> (under "Reset Secret") and paste below.</li>
+      <li><b>Bot tab</b> → <b>Add Bot</b> → enable <b>Server Members Intent</b> + <b>Message Content Intent</b> → copy the <b>Bot Token</b>.</li>
+      <li><b>OAuth2 → URL Generator</b> → scope <code>bot</code> → permissions <code>View Channels</code>, <code>Read Message History</code>, <code>Send Messages</code> → open the URL → invite the bot to your server.</li>
+    </ol>
+    <label for="setup-cid">Client ID</label>
+    <input type="text" id="setup-cid" placeholder="123456789012345678" autocomplete="off" />
+    <label for="setup-sec">Client Secret</label>
+    <input type="password" id="setup-sec" placeholder="•••••••••••••••••••••••••" autocomplete="off" />
+    <label for="setup-bot">Bot Token <span style="color:var(--ink-soft);font-weight:normal">(required for chat & member list)</span></label>
+    <input type="password" id="setup-bot" placeholder="paste your bot token here" autocomplete="off" />
+    <div class="err" id="setup-err"></div>
+    <div class="ok"  id="setup-ok">Saved! Redirecting to Discord…</div>
+    <div class="row">
+      <button class="btn secondary" id="setup-cancel" type="button">Cancel</button>
+      <button class="btn" id="setup-save" type="button">Save & Login</button>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// ---------- deterministic PRNG (mulberry32) ----------
+function rng(seed){
+  let t = seed >>> 0;
+  return () => {
+    t = (t + 0x6D2B79F5) >>> 0;
+    let x = t;
+    x = Math.imul(x ^ (x >>> 15), x | 1);
+    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function hashStr(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+function hueFromId(id){ return (hashStr(id) % 1000) / 1000; }
+
+// ---------- DOM ----------
+const blocker      = document.getElementById('blocker');
+const loginPanel   = document.getElementById('login-panel');
+const enterPanel   = document.getElementById('enter-panel');
+const enterName    = document.getElementById('enter-name');
+const enterCount   = document.getElementById('enter-count');
+const demoBtn      = document.getElementById('demo-btn');
+const meBox        = document.getElementById('me');
+const meAvatar     = document.getElementById('me-avatar');
+const meName       = document.getElementById('me-name');
+const logoutBtn    = document.getElementById('logout');
+const hud          = document.getElementById('hud');
+const fpsEl        = document.getElementById('fps');
+const islandEl     = document.getElementById('island');
+const islandNameEl = document.getElementById('island-name');
+const promptEl     = document.getElementById('prompt');
+const promptName   = document.getElementById('prompt-name');
+const enterBtn     = document.getElementById('enterBtn');
+const enterBtnName = document.getElementById('enterBtn-name');
+const loading      = document.getElementById('loading');
+const chatEl       = document.getElementById('chat');
+const chatServer   = document.getElementById('chat-server');
+const chatChannels = document.getElementById('chat-channels');
+const chatChName   = document.getElementById('chat-channel-name');
+const chatMessages = document.getElementById('chat-messages');
+const chatNotice   = document.getElementById('chat-notice');
+const chatForm     = document.getElementById('chat-form');
+const chatInput    = document.getElementById('chat-input');
+const chatClose    = document.getElementById('chat-close');
+
+// ---------- scene setup ----------
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+app.appendChild(renderer.domElement);
+
+// ---------- asset cache ----------
+const ASSETS = {
+  mushroom: null,   // THREE.Object3D
+  glbModel: null,   // THREE.Object3D
+  extraObj: null,   // THREE.Object3D
+  character: null,  // THREE.Object3D — player avatar
+  house: null,      // THREE.Object3D — fairy house
+};
+// callbacks fired once each asset finishes loading (so the player avatar
+// can swap in once the GLB arrives)
+const ASSET_CALLBACKS = { character: [], house: [] };
+
+// Shared butterfly source — populated when the OBJ loads. Member butterflies
+// (other Discord users) reuse the same geometry but with their own material
+// + flap uniform so they can flap independently and have unique colors.
+let BUTTERFLY_SRC = null;
+function makeButterflyInstance(hueSeed, targetSize){
+  if (!BUTTERFLY_SRC) return null;
+  const flapUniform = { value: 0 };
+  const tintColor = new THREE.Color().setHSL(hueSeed, 0.85, 0.62);
+  const mat = new THREE.MeshStandardMaterial({
+    map: BUTTERFLY_SRC.albedo, normalMap: BUTTERFLY_SRC.normal,
+    color: tintColor,
+    roughness: 0.75, metalness: 0.0,
+    side: THREE.DoubleSide,
+    transparent: true, alphaTest: 0.35, depthWrite: true,
+  });
+  const { hingeX, hingeY, bodyHalf, wingStart } = BUTTERFLY_SRC;
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uFlap = flapUniform;
+    shader.vertexShader =
+      'uniform float uFlap;\n' +
+      'const vec2 BF_HINGE = vec2(' + hingeX.toFixed(5) + ', ' + hingeY.toFixed(5) + ');\n' +
+      'const float BF_BODY_HALF = ' + bodyHalf.toFixed(5) + ';\n' +
+      'const float BF_WING_START = ' + wingStart.toFixed(5) + ';\n' +
+      shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `
+      float bfSide = (position.x > 0.0) ? 1.0 : ((position.x < 0.0) ? -1.0 : 0.0);
+      float bfMask = smoothstep(BF_BODY_HALF, BF_WING_START, abs(position.x));
+      float bfA = bfSide * uFlap * bfMask;
+      float bfC = cos(bfA), bfS = sin(bfA);
+      vec2 bfP = position.xy - BF_HINGE;
+      vec2 bfR = vec2(bfP.x * bfC - bfP.y * bfS, bfP.x * bfS + bfP.y * bfC);
+      vec3 transformed = vec3(bfR.x + BF_HINGE.x, bfR.y + BF_HINGE.y, position.z);
+      `
+    );
+  };
+  const mesh = new THREE.Mesh(BUTTERFLY_SRC.geometry, mat);
+  const wrapper = new THREE.Group(); wrapper.add(mesh);
+  fitToBounds(wrapper, targetSize || 2.4);
+  wrapper.userData.flapUniform = flapUniform;
+  wrapper.userData.isButterfly = true;
+  wrapper.userData.material = mat;
+  return wrapper;
+}
+function fitToBounds(obj, targetSize){
+  const box = new THREE.Box3().setFromObject(obj);
+  const size = new THREE.Vector3(); box.getSize(size);
+  const max = Math.max(size.x, size.y, size.z) || 1;
+  const s = targetSize / max;
+  obj.scale.setScalar(s);
+  // recenter on ground (so Y bottom = 0)
+  box.setFromObject(obj);
+  const center = new THREE.Vector3(); box.getCenter(center);
+  obj.position.x -= center.x;
+  obj.position.z -= center.z;
+  obj.position.y -= box.min.y;
+  return obj;
+}
+function loadAssets(){
+  const texLoader = new THREE.TextureLoader();
+  const albedo = texLoader.load('assets/mushroom/albedo.png',  t => { t.colorSpace = THREE.SRGBColorSpace; });
+  const normal = texLoader.load('assets/mushroom/normal.png');
+  const rough  = texLoader.load('assets/mushroom/roughness.png');
+
+  // mushroom
+  new OBJLoader().load('assets/mushroom/mushroom.obj', obj => {
+    const mat = new THREE.MeshStandardMaterial({
+      map: albedo, normalMap: normal, roughnessMap: rough, roughness:0.85, metalness:0.0,
+    });
+    obj.traverse(m => { if (m.isMesh){ m.material = mat; } });
+    const wrapper = new THREE.Group(); wrapper.add(obj);
+    fitToBounds(wrapper, 1.6);
+    ASSETS.mushroom = wrapper;
+  }, undefined, e => console.warn('mushroom obj failed', e));
+
+  // GLB (purpose unknown — display as a hero structure on the central island)
+  new GLTFLoader().load('assets/models/model.glb', gltf => {
+    const wrapper = new THREE.Group(); wrapper.add(gltf.scene);
+    gltf.scene.traverse(m => {
+      if (m.isMesh){
+        if (m.material){
+          m.material.side = THREE.FrontSide;
+          if (m.material.map) m.material.map.colorSpace = THREE.SRGBColorSpace;
+        }
+      }
+    });
+    fitToBounds(wrapper, 6.0);
+    ASSETS.glbModel = wrapper;
+  }, undefined, e => console.warn('glb failed', e));
+
+  // extra OBJ (used for variety)
+  new OBJLoader().load('assets/models/extra.obj', obj => {
+    obj.traverse(m => {
+      if (m.isMesh){
+        m.material = new THREE.MeshStandardMaterial({ color:0xb38c66, flatShading:true, roughness:0.9 });
+      }
+    });
+    const wrapper = new THREE.Group(); wrapper.add(obj);
+    fitToBounds(wrapper, 2.0);
+    ASSETS.extraObj = wrapper;
+  }, undefined, () => {});
+
+  // butterfly OBJ — player avatar
+  // Single welded mesh — flap is done in the vertex shader so the wings
+  // stay seamlessly attached to the body. Each vertex rotates around the
+  // body's Z-axis by an amount proportional to its distance from x=0,
+  // signed by which side it's on, so x≈0 verts (the body) stay put.
+  const bfAlbedo = texLoader.load('assets/butterfly/albedo.png', t => { t.colorSpace = THREE.SRGBColorSpace; });
+  const bfNormal = texLoader.load('assets/butterfly/normal.png');
+  new OBJLoader().load('assets/models/butterfly.obj', obj => {
+    let src = null;
+    obj.traverse(m => { if (m.isMesh && !src) src = m; });
+    if (!src){ console.warn('butterfly obj has no mesh'); return; }
+
+    // Cache shared geometry + flap params so member butterflies (other
+    // Discord users) can reuse the same model, only differing by tint.
+    const sg = src.geometry;
+    sg.computeBoundingBox();
+    const bb = sg.boundingBox;
+    const hingeY = (bb.min.y + bb.max.y) * 0.5;
+    const hingeX = 0.0;
+    const halfSpan = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x));
+    const bodyHalf  = halfSpan * 0.08;
+    const wingStart = halfSpan * 0.22;
+    BUTTERFLY_SRC = {
+      geometry: sg,
+      albedo: bfAlbedo, normal: bfNormal,
+      hingeX, hingeY, bodyHalf, wingStart,
+    };
+
+    const tintSeed = (window.__bfSeed ??= Math.random());
+    const wrapper = makeButterflyInstance(tintSeed, 2.4);
+    ASSETS.character = wrapper;
+    ASSET_CALLBACKS.character.forEach(fn => { try { fn(wrapper); } catch(e){ console.error(e); } });
+    ASSET_CALLBACKS.character.length = 0;
+  }, undefined, e => console.warn('butterfly obj failed', e));
+
+  // fairy house GLB
+  new GLTFLoader().load('assets/models/house.glb', gltf => {
+    const wrapper = new THREE.Group(); wrapper.add(gltf.scene);
+    gltf.scene.traverse(m => {
+      if (m.isMesh){
+        if (m.material && m.material.map) m.material.map.colorSpace = THREE.SRGBColorSpace;
+      }
+    });
+    fitToBounds(wrapper, 4.0);
+    ASSETS.house = wrapper;
+    ASSET_CALLBACKS.house.forEach(fn => { try { fn(wrapper); } catch(e){ console.error(e); } });
+    ASSET_CALLBACKS.house.length = 0;
+  }, undefined, e => console.warn('house glb failed', e));
+}
+loadAssets();
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9fcce0);
+// Genshin-ish soft teal/cream depth fog so distance fades to mist
+scene.fog = new THREE.Fog(0xc7e3eb, 280, 1600);
+
+const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 3000);
+
+// golden-hour key light + bright teal sky hemi → fresh Genshin look
+const sun = new THREE.DirectionalLight(0xffe4b3, 2.0);
+sun.position.set(-220, 180, 120);
+scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xc9efff, 0x6a8a6a, 0.9));
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+
+// Genshin-style sky dome — golden horizon → soft cyan → deep teal top
+{
+  const g = new THREE.SphereGeometry(1500, 32, 24);
+  const top      = new THREE.Color(0x2a5e7e); // deep teal
+  const high     = new THREE.Color(0x6fb0c4); // cyan
+  const mid      = new THREE.Color(0xc7e0d8); // pale mint
+  const horizon  = new THREE.Color(0xffe1a8); // warm gold
+  const bot      = new THREE.Color(0xb4d4d0); // mist below
+  const colors = new Float32Array(g.attributes.position.count * 3);
+  for (let i=0;i<g.attributes.position.count;i++){
+    const y = g.attributes.position.getY(i) / 1500;
+    let c;
+    if (y > 0.55)      c = high.clone().lerp(top, (y-0.55)/0.45);
+    else if (y > 0.2)  c = mid.clone().lerp(high, (y-0.2)/0.35);
+    else if (y > 0)    c = horizon.clone().lerp(mid, y/0.2);
+    else               c = horizon.clone().lerp(bot, Math.min(1, -y*1.4));
+    colors[i*3]=c.r; colors[i*3+1]=c.g; colors[i*3+2]=c.b;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const m = new THREE.MeshBasicMaterial({ vertexColors:true, side:THREE.BackSide, fog:false });
+  scene.add(new THREE.Mesh(g, m));
+}
+
+// distant snow-capped mountain ring (rounded, two-row, pastel)
+{
+  const mountainMat = new THREE.MeshStandardMaterial({ vertexColors:true, roughness:1 });
+  const mGroup = new THREE.Group();
+  function makeMountain(h, r, rockCol, snowCol){
+    // Higher tessellation + gentle, smooth angular displacement keeps mountains
+    // looking natural without producing broken / overlapping triangles.
+    const geo = new THREE.ConeGeometry(r, h, 16, 8);
+    const pos = geo.attributes.position;
+    const cols = new Float32Array(pos.count*3);
+    for (let v=0; v<pos.count; v++){
+      const x = pos.getX(v), y = pos.getY(v), z = pos.getZ(v);
+      const ny = (y + h/2)/h;
+      // smooth, deterministic ridges around the cone (no random spikes)
+      const ang = Math.atan2(z, x);
+      const rad = Math.hypot(x, z);
+      const ridge = (Math.sin(ang*4 + ny*2)*0.5 + Math.sin(ang*9)*0.25) * rad * 0.08;
+      const newRad = Math.max(0, rad + ridge);
+      pos.setX(v, Math.cos(ang) * newRad);
+      pos.setZ(v, Math.sin(ang) * newRad);
+      // round the tip down a bit
+      if (ny > 0.85) pos.setY(v, y - (ny-0.85)*h*0.4);
+      const t = Math.max(0, (ny-0.45)/0.45);
+      const c = rockCol.clone().lerp(snowCol, t*t);
+      cols[v*3]=c.r; cols[v*3+1]=c.g; cols[v*3+2]=c.b;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    geo.computeVertexNormals();
+    return new THREE.Mesh(geo, mountainMat);
+  }
+  // back row (far, hazy blue-green)
+  const farRock = new THREE.Color(0x7c95a0);
+  const farSnow = new THREE.Color(0xf5fbff);
+  for (let i=0;i<22;i++){
+    const a = (i/22) * Math.PI*2 + (Math.random()-0.5)*0.1;
+    const h = 220 + Math.random()*260;
+    const r = 110 + Math.random()*80;
+    const m = makeMountain(h, r, farRock, farSnow);
+    m.position.set(Math.cos(a)*1300, h/2 - 14, Math.sin(a)*1300);
+    mGroup.add(m);
+  }
+  // front row (closer, mossy green slopes)
+  const nearRock = new THREE.Color(0x4a6a4e);
+  const nearSnow = new THREE.Color(0xeaf5e8);
+  for (let i=0;i<14;i++){
+    const a = (i/14) * Math.PI*2 + (Math.random()-0.5)*0.18;
+    const h = 140 + Math.random()*160;
+    const r = 80 + Math.random()*50;
+    const m = makeMountain(h, r, nearRock, nearSnow);
+    m.position.set(Math.cos(a)*880, h/2 - 18, Math.sin(a)*880);
+    mGroup.add(m);
+  }
+  scene.add(mGroup);
+}
+
+// teal lagoon FAR below the islands (visible through fog as a misty sea)
+const OCEAN_Y = -120;
+const oceanMat = new THREE.MeshStandardMaterial({
+  color:0x4ea0b4, roughness:0.3, metalness:0.5, transparent:true, opacity:0.95,
+  emissive:0x2a8898, emissiveIntensity:0.18,
+});
+const oceanGeo = new THREE.PlaneGeometry(6000, 6000, 64, 64);
+const oceanBaseY = oceanGeo.attributes.position.array.slice(2);
+const ocean = new THREE.Mesh(oceanGeo, oceanMat);
+ocean.rotation.x = -Math.PI/2;
+ocean.position.y = OCEAN_Y;
+scene.add(ocean);
+
+// soft cloud / mist banks floating between water and islands
+const mistTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(64,64,0,64,64,64);
+  g.addColorStop(0, 'rgba(255,255,255,0.95)');
+  g.addColorStop(0.5,'rgba(220,235,240,0.55)');
+  g.addColorStop(1, 'rgba(200,220,228,0)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,128,128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+const mistGroup = new THREE.Group();
+for (let i=0;i<140;i++){
+  const a = Math.random()*Math.PI*2;
+  const r = 60 + Math.random()*900;
+  const s = 70 + Math.random()*120;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: mistTex, transparent:true, depthWrite:false, opacity: 0.55 + Math.random()*0.3,
+    blending: THREE.NormalBlending, fog:true,
+  }));
+  sp.position.set(Math.cos(a)*r, OCEAN_Y + 30 + Math.random()*70, Math.sin(a)*r);
+  sp.scale.set(s, s*0.55, 1);
+  mistGroup.add(sp);
+}
+scene.add(mistGroup);
+
+function animateOcean(t){
+  const p = oceanGeo.attributes.position;
+  for (let i=0;i<p.count;i++){
+    const x = p.getX(i), y = p.getY(i);
+    const w = Math.sin((x+t*30)*0.012) * 0.5 + Math.cos((y+t*22)*0.018) * 0.4;
+    p.setZ(i, w);
+  }
+  p.needsUpdate = true;
+  oceanGeo.computeVertexNormals();
+}
+
+// soft lily-pads scattered on the lagoon
+{
+  const padGeo = new THREE.CircleGeometry(2.2, 8);
+  const padMat = new THREE.MeshStandardMaterial({ color:0x88c98a, flatShading:true, roughness:0.9, transparent:true, opacity:0.85 });
+  const pads = new THREE.InstancedMesh(padGeo, padMat, 80);
+  const m = new THREE.Matrix4();
+  for (let i=0;i<pads.count;i++){
+    const a = Math.random()*Math.PI*2;
+    const r = 60 + Math.random()*900;
+    m.makeRotationX(-Math.PI/2);
+    m.setPosition(Math.cos(a)*r, OCEAN_Y + 0.4, Math.sin(a)*r);
+    pads.setMatrixAt(i, m);
+  }
+  scene.add(pads);
+}
+
+// ---------- procedural islands ----------
+const islandGroup = new THREE.Group();
+scene.add(islandGroup);
+const islands = []; // { mesh, name, center, radius, topY }
+
+function clearIslands(){
+  while (islandGroup.children.length){
+    const c = islandGroup.children.pop();
+    c.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material){
+        const m = o.material;
+        if (Array.isArray(m)) m.forEach(x => x.dispose && x.dispose());
+        else m.dispose && m.dispose();
+      }
+    });
+  }
+  islands.length = 0;
+  swayTrees.length = 0;
+  restingButterflies.length = 0;
+  visitedIslands.clear();
+  for (const mb of memberButterflies){
+    scene.remove(mb.mesh);
+    if (mb.mesh.isSprite){
+      mb.mesh.material.map?.dispose?.();
+      mb.mesh.material.dispose();
+    } else {
+      // Don't dispose the shared geometry — only this instance's material.
+      mb.mesh.traverse(o => {
+        if (o.isMesh && o.material && o.material !== mb.material) o.material.dispose?.();
+      });
+      mb.material?.dispose?.();
+    }
+    mb.label.material.map?.dispose?.();
+    mb.label.material.dispose();
+  }
+  memberButterflies.length = 0;
+  loadedIslandIds.clear();
+  for (const id of presencePollers.values()) clearInterval(id);
+  presencePollers.clear();
+}
+
+// shared geometries / materials for decorations
+const GRASS_GEO = (() => {
+  // taller, thinner blade with a mid-vertex so the tip can bend without snapping
+  const g = new THREE.BufferGeometry();
+  const v = new Float32Array([
+    // left edge bottom, right edge bottom, mid-left, mid-right, tip
+    -0.04, 0,    0,   0.04, 0,    0,
+    -0.025, 0.4, 0,   0.025, 0.4, 0,
+     0,    0.85, 0,
+  ]);
+  const idx = new Uint16Array([
+    0,1,2, 1,3,2,   // lower quad
+    2,3,4,          // upper triangle (tip)
+  ]);
+  g.setAttribute('position', new THREE.BufferAttribute(v, 3));
+  g.setIndex(new THREE.BufferAttribute(idx, 1));
+  g.computeVertexNormals();
+  return g;
+})();
+
+// shared wind uniform — drives grass + tree sway
+const WIND = { value: 0 };
+// trees that should gently sway in the breeze
+const swayTrees = [];
+
+function makeGrassMaterial(color){
+  const mat = new THREE.MeshStandardMaterial({
+    color, side: THREE.DoubleSide, flatShading:true, roughness:0.95,
+  });
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = WIND;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+        uniform float uTime;`)
+      .replace('#include <begin_vertex>', `
+        #include <begin_vertex>
+        // mask: 0 at base → 1 at tip
+        float bend = clamp(position.y / 0.85, 0.0, 1.0);
+        bend = bend*bend; // ease-in
+        // per-instance offset so blades don't move in lockstep
+        float ix = instanceMatrix[3].x;
+        float iz = instanceMatrix[3].z;
+        float w  = sin(uTime*1.6 + ix*0.18 + iz*0.11) * 0.25;
+        float w2 = cos(uTime*2.2 + ix*0.07 - iz*0.21) * 0.15;
+        transformed.x += w  * bend;
+        transformed.z += w2 * bend;
+        transformed.y -= bend * (abs(w) + abs(w2)) * 0.18;
+      `);
+  };
+  return mat;
+}
+
+const FLOWER_COLORS = [0xff8fb1, 0xffb1e0, 0xffd485, 0xc4a8ff, 0xfff1c8, 0xff7a7a];
+
+const WATERFALL_MATS = []; // for animating uv
+
+function makeWaterfall(width, height){
+  // glowing cyan cascade — fades top→bottom into bright glow pool
+  const g = new THREE.Group();
+
+  // streaks texture (vertical bands)
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 256;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,0,256);
+  grad.addColorStop(0,   'rgba(120,200,255,0.0)');
+  grad.addColorStop(0.15,'rgba(140,220,255,0.55)');
+  grad.addColorStop(0.55,'rgba(180,240,255,0.95)');
+  grad.addColorStop(1,   'rgba(255,255,255,1.0)');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,64,256);
+  // long streaks
+  for (let i=0;i<28;i++){
+    const x = Math.random()*64;
+    ctx.fillStyle = `rgba(255,255,255,${0.25+Math.random()*0.55})`;
+    ctx.fillRect(x, 0, 1 + Math.random()*1.5, 256);
+  }
+  // sparkle dots
+  for (let i=0;i<70;i++){
+    ctx.fillStyle = `rgba(220,250,255,${0.3+Math.random()*0.6})`;
+    ctx.fillRect(Math.random()*64, Math.random()*256, 2, 3);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshBasicMaterial({
+    map: tex, transparent:true, opacity:0.95, depthWrite:false, side:THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+  });
+  WATERFALL_MATS.push(tex);
+  const geo = new THREE.PlaneGeometry(width, height, 1, 1);
+  const fall = new THREE.Mesh(geo, mat);
+  g.add(fall);
+
+  // back glow plane (slightly bigger, behind, cyan haze)
+  const haze = new THREE.Mesh(
+    new THREE.PlaneGeometry(width*1.6, height*1.05),
+    new THREE.MeshBasicMaterial({ color:0x44a0ff, transparent:true, opacity:0.35, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide })
+  );
+  haze.position.z = -0.05;
+  g.add(haze);
+
+  // bright glow pool at the base
+  const pool = new THREE.Mesh(
+    new THREE.SphereGeometry(width*0.9, 14, 10),
+    new THREE.MeshBasicMaterial({ color:0xaadfff, transparent:true, opacity:0.55, blending:THREE.AdditiveBlending, depthWrite:false })
+  );
+  pool.scale.set(1.4, 0.6, 1.4);
+  pool.position.y = -height/2 + 0.4;
+  g.add(pool);
+
+  return g;
+}
+
+function makeMushroomReal(rand){
+  if (!ASSETS.mushroom) return null;
+  const m = ASSETS.mushroom.clone(true);
+  m.scale.multiplyScalar(0.7 + rand()*0.7);
+  m.rotation.y = rand()*Math.PI*2;
+  return m;
+}
+function makeExtraObj(rand){
+  if (!ASSETS.extraObj) return null;
+  const m = ASSETS.extraObj.clone(true);
+  m.scale.multiplyScalar(0.8 + rand()*0.6);
+  m.rotation.y = rand()*Math.PI*2;
+  return m;
+}
+function makeGlbHero(rand){
+  if (!ASSETS.glbModel) return null;
+  const m = ASSETS.glbModel.clone(true);
+  m.scale.multiplyScalar(1 + rand()*0.6);
+  m.rotation.y = rand()*Math.PI*2;
+  return m;
+}
+
+function makeMushroom(rand, hue){
+  const g = new THREE.Group();
+  const stemH = 0.6 + rand()*0.6;
+  const stem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.12, 0.18, stemH, 8),
+    new THREE.MeshStandardMaterial({ color:0xfff1d6, flatShading:true, roughness:0.9 })
+  );
+  stem.position.y = stemH/2;
+  g.add(stem);
+  const capR = 0.35 + rand()*0.35;
+  const cap = new THREE.Mesh(
+    new THREE.SphereGeometry(capR, 12, 8, 0, Math.PI*2, 0, Math.PI/2),
+    new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL((hue+0.5)%1, 0.65, 0.55), flatShading:true, roughness:0.7, emissive:0x331122, emissiveIntensity:0.15 })
+  );
+  cap.position.y = stemH;
+  cap.scale.y = 0.7;
+  g.add(cap);
+  return g;
+}
+
+function makeTree(rand, hue){
+  // Genshin-style tall pine tree with stacked cone canopy
+  const g = new THREE.Group();
+  const trunkH = 2.4 + rand()*1.6;
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.16, 0.32, trunkH, 8),
+    new THREE.MeshStandardMaterial({ color:0x6e4a2a, flatShading:true, roughness:0.95 })
+  );
+  trunk.position.y = trunkH/2;
+  g.add(trunk);
+  const greenL = 0.32 + rand()*0.12;
+  const cColor = new THREE.Color().setHSL(0.27 + rand()*0.06, 0.55, greenL);
+  const layers = 3 + Math.floor(rand()*2);
+  for (let i=0;i<layers;i++){
+    const t = i/layers;
+    const r = (1.4 - t*0.7) * (0.9 + rand()*0.3);
+    const h = 1.2 + rand()*0.6;
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(r, h, 9),
+      new THREE.MeshStandardMaterial({ color:cColor, flatShading:true, roughness:0.85 })
+    );
+    cone.position.y = trunkH * 0.55 + i * (h*0.6);
+    g.add(cone);
+  }
+  return g;
+}
+
+function makeCherryTree(rand){
+  // pink cherry blossom tree — Genshin Sakura
+  const g = new THREE.Group();
+  const trunkH = 1.8 + rand()*1.2;
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.14, 0.26, trunkH, 8),
+    new THREE.MeshStandardMaterial({ color:0x4a2a1e, flatShading:true, roughness:0.95 })
+  );
+  trunk.position.y = trunkH/2;
+  trunk.rotation.z = (rand()-0.5)*0.18;
+  g.add(trunk);
+  const pink = new THREE.Color().setHSL(0.93 + rand()*0.04, 0.65, 0.75);
+  for (let i=0;i<5;i++){
+    const r = 0.7 + rand()*0.6;
+    const ball = new THREE.Mesh(
+      new THREE.SphereGeometry(r, 12, 10),
+      new THREE.MeshStandardMaterial({ color:pink, flatShading:true, roughness:0.7 })
+    );
+    ball.position.set((rand()-0.5)*1.1, trunkH + 0.3 + rand()*0.8, (rand()-0.5)*1.1);
+    g.add(ball);
+  }
+  return g;
+}
+
+function makeFlower(rand, color){
+  const g = new THREE.Group();
+  const stem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.03, 0.5, 4),
+    new THREE.MeshStandardMaterial({ color:0x6cae6c, flatShading:true })
+  );
+  stem.position.y = 0.25;
+  g.add(stem);
+  const petals = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 8, 6),
+    new THREE.MeshStandardMaterial({ color, flatShading:true, emissive:color, emissiveIntensity:0.25 })
+  );
+  petals.position.y = 0.55;
+  petals.scale.y = 0.6;
+  g.add(petals);
+  return g;
+}
+
+function makeFairyHouse(rand, hue){
+  const g = new THREE.Group();
+  // wood-color base (round/cottage)
+  const wallH = 1.6 + rand()*0.8;
+  const wallR = 0.9 + rand()*0.4;
+  const wallColor = new THREE.Color().setHSL(0.07, 0.45, 0.32);
+  const wall = new THREE.Mesh(
+    new THREE.CylinderGeometry(wallR, wallR*1.1, wallH, 8),
+    new THREE.MeshStandardMaterial({ color:wallColor, flatShading:true, roughness:0.95 })
+  );
+  wall.position.y = wallH/2;
+  g.add(wall);
+  // tall pointy roof
+  const roofH = 2.4 + rand()*1.6;
+  const roofColor = new THREE.Color().setHSL((hue+0.95)%1, 0.7, 0.35); // dark red/maroon
+  const roof = new THREE.Mesh(
+    new THREE.ConeGeometry(wallR*1.3, roofH, 8),
+    new THREE.MeshStandardMaterial({ color:roofColor, flatShading:true, roughness:0.85 })
+  );
+  roof.position.y = wallH + roofH/2;
+  g.add(roof);
+  // glowing windows
+  const winColor = 0xffd07a;
+  for (let i=0;i<3;i++){
+    const a = (i/3)*Math.PI*2;
+    const win = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.3, 0.4),
+      new THREE.MeshBasicMaterial({ color:winColor })
+    );
+    win.position.set(Math.cos(a)*wallR*1.01, wallH*0.55, Math.sin(a)*wallR*1.01);
+    win.lookAt(Math.cos(a)*wallR*5, wallH*0.55, Math.sin(a)*wallR*5);
+    g.add(win);
+  }
+  // tiny warm glow point light effect via emissive sphere
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.25, 8, 6),
+    new THREE.MeshBasicMaterial({ color:0xffd49a, transparent:true, opacity:0.55, blending:THREE.AdditiveBlending, depthWrite:false })
+  );
+  glow.position.y = wallH*0.55;
+  g.add(glow);
+  return g;
+}
+
+function makeLantern(rand){
+  const g = new THREE.Group();
+  // pole
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.06, 1.5, 6),
+    new THREE.MeshStandardMaterial({ color:0x2a1a14, flatShading:true })
+  );
+  pole.position.y = 0.75;
+  g.add(pole);
+  // lamp head
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.22, 10, 8),
+    new THREE.MeshStandardMaterial({ color:0xffd07a, emissive:0xffb060, emissiveIntensity:1.2, transparent:true, opacity:0.95 })
+  );
+  head.position.y = 1.55;
+  g.add(head);
+  // halo
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 12, 8),
+    new THREE.MeshBasicMaterial({ color:0xffe0a0, transparent:true, opacity:0.35, blending:THREE.AdditiveBlending, depthWrite:false })
+  );
+  halo.position.y = 1.55;
+  g.add(halo);
+  return g;
+}
+
+function makeChannelPortal(name, hue){
+  const g = new THREE.Group();
+  // base disk
+  const baseColor = new THREE.Color().setHSL(hue, 0.6, 0.55);
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(1.4, 0.18, 12, 32),
+    new THREE.MeshStandardMaterial({ color:0x5865F2, emissive:0x5865F2, emissiveIntensity:0.6, metalness:0.3, roughness:0.4 })
+  );
+  ring.rotation.x = -Math.PI/2;
+  ring.position.y = 0.05;
+  g.add(ring);
+  // glowing pad
+  const pad = new THREE.Mesh(
+    new THREE.CircleGeometry(1.35, 32),
+    new THREE.MeshBasicMaterial({ color:0xc9c8ff, transparent:true, opacity:0.55 })
+  );
+  pad.rotation.x = -Math.PI/2;
+  pad.position.y = 0.06;
+  g.add(pad);
+  // floating channel name sign
+  const sign = makeLabel('# ' + name, 0x5865F2);
+  sign.position.y = 2.4;
+  sign.scale.set(4.5, 1.1, 1);
+  g.add(sign);
+  g.userData.ring = ring;
+  g.userData.pad = pad;
+  return g;
+}
+
+function buildIsland(server, position){
+  const seed = hashStr(server.id);
+  const rand = rng(seed);
+  const hue  = hueFromId(server.id);
+
+  // size scales with member_count_hint when available
+  const sizeBoost = server.member_count_hint ? Math.min(1.6, Math.log10(server.member_count_hint+10)/2.6) : 1.0;
+  const radius = (18 + rand()*14) * sizeBoost;
+  const height = (24 + rand()*16) * sizeBoost; // tall cliff bottoms
+
+  // float each island at a varying altitude in the sky
+  const islandFloatY = 12 + rand()*40;
+
+  // ----- island body (grassy mossy top, tall rocky bottom) -----
+  // Higher radial tessellation gives a smooth circular rim instead of a jagged polygon.
+  const bodyGeo = new THREE.CylinderGeometry(radius*0.95, radius*0.25, height, 36, 6);
+  const pos = bodyGeo.attributes.position;
+  // gentle deterministic side ripples (no jagged random spikes)
+  const cylTopY = height/2;
+  const cylBotY = -height/2;
+  for (let i=0;i<pos.count;i++){
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    if (y >= cylTopY - 0.001){
+      // perfectly flat top — leave untouched
+      continue;
+    }
+    if (y <= cylBotY + 0.001){
+      // bottom tip: a soft droplet, not a shattered point
+      const r = Math.hypot(x, z);
+      if (r > 0.0001){
+        const dip = 0.6 + 0.4*Math.sin(Math.atan2(z,x)*5);
+        pos.setY(i, y - dip);
+      }
+      continue;
+    }
+    // mid-cliff: subtle radial swell using smooth angular waves
+    const ang = Math.atan2(z, x);
+    const r0  = Math.hypot(x, z);
+    const t   = (y - cylBotY) / height; // 0 at bottom .. 1 at top
+    const wave = (Math.sin(ang*5 + t*4)*0.5 + Math.sin(ang*9 - t*3)*0.25) * (1.0 - t) * 1.2;
+    const r1 = Math.max(0.05, r0 + wave);
+    pos.setX(i, Math.cos(ang)*r1);
+    pos.setZ(i, Math.sin(ang)*r1);
+  }
+  pos.needsUpdate = true;
+  bodyGeo.computeVertexNormals();
+
+  // two-tone material via vertex colors: lush Genshin green top, mossy gray cliff bottom
+  const colors = new Float32Array(pos.count * 3);
+  const grass = new THREE.Color().setHSL(0.27, 0.62, 0.5);
+  const rock  = new THREE.Color().setHSL(0.10, 0.18, 0.42);
+  for (let i=0;i<pos.count;i++){
+    const y = pos.getY(i);
+    const t = THREE.MathUtils.clamp((y + height/3) / height, 0, 1);
+    const c = rock.clone().lerp(grass, t);
+    colors[i*3]=c.r; colors[i*3+1]=c.g; colors[i*3+2]=c.b;
+  }
+  bodyGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const bodyMat = new THREE.MeshStandardMaterial({ vertexColors:true, roughness:0.95 });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.position.set(position.x, islandFloatY + height/2, position.z);
+  islandGroup.add(body);
+
+  const topY = islandFloatY + height; // world-space top of island
+  const islandRadius = radius*0.92;
+
+  // mist clouds clinging to the bottom of the island
+  for (let i=0;i<10;i++){
+    const a = rand()*Math.PI*2;
+    const r = rand()*islandRadius*0.9;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: mistTex, transparent:true, depthWrite:false, opacity: 0.5 + rand()*0.3, fog:true,
+    }));
+    const s = 14 + rand()*22;
+    sp.position.set(Math.cos(a)*r, -height/2 - 2 - rand()*8, Math.sin(a)*r);
+    sp.scale.set(s, s*0.5, 1);
+    body.add(sp);
+  }
+
+  // ----- waterfalls cascading off the side -----
+  // The cylinder top radius is `radius*0.95`. To prevent the waterfall plane
+  // from poking up through the island surface as a vertical slit, place it
+  // OUTSIDE the cylinder top edge AND tuck the top edge slightly below the rim.
+  const wfCount = 2 + Math.floor(rand()*2);
+  const wfRadial = radius * 1.02;          // just outside the cylinder rim
+  const wfTopDrop = 1.5;                   // hide the top edge below the grass
+  for (let i=0;i<wfCount;i++){
+    const a = rand()*Math.PI*2;
+    const wfLen = height + 4;
+    const wf = makeWaterfall(2.2 + rand()*1.2, wfLen);
+    const cx = Math.cos(a)*wfRadial, cz = Math.sin(a)*wfRadial;
+    // place center so the top of the plane sits just below the island rim
+    wf.position.set(cx, height/2 - wfTopDrop - wfLen/2, cz);
+    // orient the plane to face radially outward — use the world Y of the wf
+    // (not its body-local y) so lookAt produces a properly horizontal facing.
+    const wfWorldY = body.position.y + wf.position.y;
+    wf.lookAt(body.position.x + Math.cos(a)*1000, wfWorldY, body.position.z + Math.sin(a)*1000);
+    body.add(wf);
+    // splash mist disk hovering below the cliff
+    const splash = new THREE.Mesh(
+      new THREE.CircleGeometry(2.6, 16),
+      new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.5 })
+    );
+    splash.rotation.x = -Math.PI/2;
+    splash.position.set(cx, height/2 - wfTopDrop - wfLen - 0.5, cz);
+    body.add(splash);
+  }
+
+  // ----- grass blades (instanced, lots, animated wind sway) -----
+  {
+    const count = Math.floor(280 + radius*12);
+    const grassMat = makeGrassMaterial(new THREE.Color().setHSL(0.27, 0.65, 0.5));
+    const grassMesh = new THREE.InstancedMesh(GRASS_GEO, grassMat, count);
+    grassMesh.frustumCulled = false; // wind moves verts beyond stale bounds
+    const m = new THREE.Matrix4();
+    const e = new THREE.Euler();
+    const q = new THREE.Quaternion();
+    const sc = new THREE.Vector3();
+    let placed = 0;
+    while (placed < count){
+      const a = rand()*Math.PI*2;
+      const r = Math.sqrt(rand())*islandRadius*0.88;
+      const x = Math.cos(a)*r, z = Math.sin(a)*r;
+      const h = 0.7 + rand()*0.9;
+      e.set((rand()-0.5)*0.1, rand()*Math.PI*2, (rand()-0.5)*0.1);
+      q.setFromEuler(e);
+      sc.set(0.8+rand()*0.6, h, 0.8+rand()*0.6);
+      m.compose(new THREE.Vector3(x, height/2, z), q, sc);
+      grassMesh.setMatrixAt(placed, m);
+      placed++;
+    }
+    grassMesh.instanceMatrix.needsUpdate = true;
+    body.add(grassMesh);
+  }
+
+  // ----- DENSE flower carpet (lots, multi-color) -----
+  const flowerCount = 60 + Math.floor(islandRadius*5);
+  for (let d=0; d<flowerCount; d++){
+    const a = rand()*Math.PI*2;
+    const r = Math.sqrt(rand())*islandRadius*0.88;
+    const f = makeFlower(rand, FLOWER_COLORS[Math.floor(rand()*FLOWER_COLORS.length)]);
+    f.position.set(Math.cos(a)*r, height/2, Math.sin(a)*r);
+    f.scale.setScalar(0.7 + rand()*0.8);
+    f.rotation.y = rand()*Math.PI*2;
+    body.add(f);
+  }
+
+  // ----- resting butterflies perched on flowers (take off when player nears) -----
+  const restCount = 4 + Math.floor(rand()*4);
+  for (let d=0; d<restCount; d++){
+    const a = rand()*Math.PI*2;
+    const r = Math.sqrt(rand())*islandRadius*0.85;
+    const restHue = (hue + rand()*0.4) % 1;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeRestingButterflyTexture(restHue), transparent:true, depthWrite:false,
+    }));
+    sp.scale.set(0.9, 0.9, 1);
+    sp.position.set(Math.cos(a)*r, height/2 + 0.45, Math.sin(a)*r);
+    body.add(sp);
+    restingButterflies.push({
+      sprite: sp,
+      basePos: new THREE.Vector3(),
+      restY: 0,
+      state: 'rest',
+      flyT: 0,
+      flyDir: new THREE.Vector3((rand()-0.5), 1, (rand()-0.5)).normalize(),
+      island: null, // filled after the island object exists
+    });
+  }
+
+  // ----- non-overlap placement helper -----
+  // Track footprints (cx, cz, radius) of the bigger props on this island
+  // so houses, trees, and mushrooms don't visually clip into each other.
+  const placed = [];
+  const PAD = 0.6; // small extra gap so props don't touch
+  function tryPlace(rMin, rMax, footprint, maxAttempts){
+    const attempts = maxAttempts || 40;
+    for (let k=0; k<attempts; k++){
+      const a = rand()*Math.PI*2;
+      const r = rMin + rand()*(rMax - rMin);
+      const x = Math.cos(a)*r, z = Math.sin(a)*r;
+      let ok = true;
+      for (let p=0; p<placed.length; p++){
+        const dx = x - placed[p].x, dz = z - placed[p].z;
+        if (Math.hypot(dx, dz) < placed[p].r + footprint + PAD){ ok = false; break; }
+      }
+      if (ok){ placed.push({ x, z, r:footprint }); return { x, z }; }
+    }
+    return null;
+  }
+  // Measure an object's XZ footprint radius after applying a uniform scale.
+  const _bbox = new THREE.Box3();
+  const _bsize = new THREE.Vector3();
+  function footprintOf(obj, scale){
+    _bbox.setFromObject(obj);
+    _bbox.getSize(_bsize);
+    const halfDiag = 0.5 * Math.hypot(_bsize.x, _bsize.z);
+    return halfDiag * scale;
+  }
+
+  // ----- fairy houses (1-3 per island, GLB if available) -----
+  const houseCount = 1 + Math.floor(rand()*3);
+  for (let d=0; d<houseCount; d++){
+    const houseScale = 0.9 + rand()*0.4;
+    let h;
+    if (ASSETS.house){
+      h = ASSETS.house.clone(true);
+    } else {
+      h = makeFairyHouse(rand, hue);
+    }
+    const fp = footprintOf(h, houseScale);
+    const slot = tryPlace(islandRadius*0.25, islandRadius*0.6, fp);
+    if (!slot) continue;
+    h.position.set(slot.x, height/2, slot.z);
+    h.rotation.y = rand()*Math.PI*2;
+    h.scale.setScalar(houseScale);
+    body.add(h);
+  }
+
+  // ----- glowing lanterns lining the edge -----
+  const lanternCount = 5 + Math.floor(rand()*4);
+  for (let d=0; d<lanternCount; d++){
+    const a = (d/lanternCount)*Math.PI*2 + rand()*0.3;
+    const r = islandRadius*0.85;
+    const l = makeLantern(rand);
+    l.position.set(Math.cos(a)*r, height/2, Math.sin(a)*r);
+    body.add(l);
+  }
+
+  // ----- trees & mushrooms (lush Genshin mix) -----
+  const treeCount = 14 + Math.floor(rand()*10);
+  for (let d=0; d<treeCount; d++){
+    let item;
+    const pick = rand();
+    let isTree = false;
+    if (pick < 0.5){ item = makeTree(rand, hue); isTree = true; }
+    else if (pick < 0.75){ item = makeCherryTree(rand); isTree = true; }
+    else { item = makeMushroom(rand, hue); }
+    const itemScale = 0.9 + rand()*0.5;
+    const footprint = footprintOf(item, itemScale);
+    const slot = tryPlace(0, islandRadius*0.78, footprint);
+    if (!slot) continue;
+    item.position.set(slot.x, height/2, slot.z);
+    item.rotation.y = rand()*Math.PI*2;
+    item.scale.multiplyScalar(itemScale);
+    if (isTree){
+      item.userData.swayPhase = rand()*Math.PI*2;
+      item.userData.swayAmp   = 0.025 + rand()*0.03;
+      item.userData.baseRotZ  = item.rotation.z;
+      item.userData.baseRotX  = item.rotation.x;
+      swayTrees.push(item);
+    }
+    body.add(item);
+  }
+
+  // (hero GLB removed — the user-supplied GLB is a character model, not scenery)
+
+  // ----- floating server name banner -----
+  const label = makeLabel(server.name);
+  label.position.set(0, height/2 + 12, 0);
+  body.add(label);
+
+  // ----- channel portals (one per channel; lazy-filled later) -----
+  const portals = []; // { mesh, channel, worldPos }
+  // placeholder until channels load
+  function placePortals(channels){
+    // remove existing
+    portals.forEach(p => body.remove(p.mesh));
+    portals.length = 0;
+    const slots = Math.min(channels.length, 6);
+    for (let i=0;i<slots;i++){
+      const ch = channels[i];
+      const a = (i / slots) * Math.PI*2 + rand()*0.2;
+      const r = islandRadius*0.55;
+      const portal = makeChannelPortal(ch.name, hue);
+      portal.position.set(Math.cos(a)*r, height/2 + 0.05, Math.sin(a)*r);
+      body.add(portal);
+      portals.push({ mesh:portal, channel:ch });
+    }
+  }
+
+  const island = {
+    mesh: body, name:server.name, server,
+    center: new THREE.Vector2(position.x, position.z),
+    radius: islandRadius, topY,
+    portals, placePortals,
+    channelsLoaded: false,
+  };
+  islands.push(island);
+  return island;
+}
+
+function makeLabel(text, accent){
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 128;
+  const ctx = c.getContext('2d');
+  // pastel paper background with rounded corners
+  ctx.fillStyle = 'rgba(255,247,251,0.96)';
+  roundRect(ctx, 4, 4, c.width-8, c.height-8, 32); ctx.fill();
+  if (accent !== undefined){
+    ctx.strokeStyle = '#' + accent.toString(16).padStart(6,'0');
+    ctx.lineWidth = 6;
+    roundRect(ctx, 4, 4, c.width-8, c.height-8, 32); ctx.stroke();
+  } else {
+    ctx.strokeStyle = 'rgba(255,180,220,0.9)';
+    ctx.lineWidth = 4;
+    roundRect(ctx, 4, 4, c.width-8, c.height-8, 32); ctx.stroke();
+  }
+  ctx.fillStyle = '#3b2a4a';
+  ctx.font = 'bold 56px "Comic Sans MS","Chalkboard SE",Segoe UI,sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const t = text.length > 22 ? text.slice(0,21)+'…' : text;
+  ctx.fillText(t, c.width/2, c.height/2 + 4);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:true }));
+  sprite.scale.set(12, 3, 1);
+  return sprite;
+}
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+// place islands on a poisson-ish ring scaled by count
+function generateWorldFromGuilds(guilds){
+  clearIslands();
+  if (!guilds.length){
+    buildIsland({ id:'empty', name:'No servers found', member_count_hint:50 }, { x:0, z:80 });
+    return;
+  }
+
+  // sort by hash so layout is stable per-user
+  const sorted = [...guilds].sort((a,b) => hashStr(a.id) - hashStr(b.id));
+  const n = sorted.length;
+
+  // distribute across concentric rings
+  const PER_RING = 8;
+  const RING_GAP = 70;
+  for (let i=0;i<n;i++){
+    const ring = Math.floor(i / PER_RING) + 1;
+    const idxInRing = i % PER_RING;
+    const inThisRing = Math.min(PER_RING, n - ring*PER_RING + PER_RING);
+    const baseAngle = (idxInRing / inThisRing) * Math.PI*2;
+    const jitter = (rng(hashStr(sorted[i].id))() - 0.5) * 0.6;
+    const angle = baseAngle + jitter;
+    const dist = 70 + ring * RING_GAP + (hashStr(sorted[i].id) % 25);
+    buildIsland(sorted[i], { x: Math.cos(angle)*dist, z: Math.sin(angle)*dist });
+  }
+}
+
+// ---------- butterflies (instanced sprites with flutter) ----------
+function makeButterflyTexture(){
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d');
+  // body
+  ctx.fillStyle = '#3b2a4a';
+  ctx.fillRect(30, 22, 4, 20);
+  // wings (heart-ish)
+  const wingColors = ['#ffb3d9','#cdb4ff','#ffd485','#a8e6cf','#ff8fb1','#c4a8ff'];
+  const col = wingColors[Math.floor(Math.random()*wingColors.length)];
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.ellipse(20, 26, 16, 14, -0.4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(44, 26, 16, 14,  0.4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath(); ctx.ellipse(20, 30,  8,  6, -0.4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(44, 30,  8,  6,  0.4, 0, Math.PI*2); ctx.fill();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+const BUTTERFLY_COUNT = 60;
+const butterflies = [];
+for (let i=0;i<BUTTERFLY_COUNT;i++){
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeButterflyTexture(), transparent:true, depthWrite:false,
+  }));
+  sprite.scale.set(1.4, 1.4, 1);
+  // orbit center somewhere in the world (around floating-island altitudes)
+  const orbitR = 80 + Math.random()*250;
+  const a0 = Math.random()*Math.PI*2;
+  sprite.position.set(Math.cos(a0)*orbitR, 25 + Math.random()*40, Math.sin(a0)*orbitR);
+  scene.add(sprite);
+  butterflies.push({
+    sprite,
+    cx: (Math.random()-0.5)*200,
+    cz: (Math.random()-0.5)*200,
+    cy: 25 + Math.random()*40,
+    r:  4 + Math.random()*12,
+    speed: 0.4 + Math.random()*0.7,
+    phase: Math.random()*Math.PI*2,
+    bobF: 1 + Math.random()*2,
+    bobA: 0.6 + Math.random()*0.8,
+  });
+}
+
+// ---------- fireflies (sparkle points) ----------
+const FIREFLY_COUNT = 350;
+const fireflyGeo = new THREE.BufferGeometry();
+const ffPos = new Float32Array(FIREFLY_COUNT*3);
+const ffSeed = new Float32Array(FIREFLY_COUNT);
+for (let i=0;i<FIREFLY_COUNT;i++){
+  const a = Math.random()*Math.PI*2;
+  const r = 30 + Math.random()*450;
+  ffPos[i*3]   = Math.cos(a)*r;
+  ffPos[i*3+1] = 10 + Math.random()*70;
+  ffPos[i*3+2] = Math.sin(a)*r;
+  ffSeed[i] = Math.random()*1000;
+}
+fireflyGeo.setAttribute('position', new THREE.BufferAttribute(ffPos, 3));
+const fireflyTex = (() => {
+  const c = document.createElement('canvas'); c.width=c.height=32;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(16,16,0,16,16,16);
+  g.addColorStop(0,'rgba(255,255,200,1)');
+  g.addColorStop(0.4,'rgba(255,220,140,0.7)');
+  g.addColorStop(1,'rgba(255,200,120,0)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,32,32);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+const fireflyMat = new THREE.PointsMaterial({
+  size: 1.6, map: fireflyTex, transparent:true, depthWrite:false,
+  blending: THREE.AdditiveBlending, sizeAttenuation:true, color:0xffe9a8,
+});
+const fireflies = new THREE.Points(fireflyGeo, fireflyMat);
+scene.add(fireflies);
+
+// ---------- magical sparkle trail behind the player ----------
+const TRAIL_COUNT = 80;
+const trailGeo = new THREE.BufferGeometry();
+const trailPos = new Float32Array(TRAIL_COUNT*3);
+const trailLife = new Float32Array(TRAIL_COUNT); // 0..1
+const trailSeed = new Float32Array(TRAIL_COUNT);
+for (let i=0; i<TRAIL_COUNT; i++){
+  trailPos[i*3] = trailPos[i*3+1] = trailPos[i*3+2] = 1e6;
+  trailLife[i] = 0;
+  trailSeed[i] = Math.random();
+}
+trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
+const trailMat = new THREE.PointsMaterial({
+  size: 0.6, map: fireflyTex, transparent:true, depthWrite:false,
+  blending: THREE.AdditiveBlending, sizeAttenuation:true, color:0xffd9f2,
+  opacity: 0.95,
+});
+const trailPoints = new THREE.Points(trailGeo, trailMat);
+trailPoints.frustumCulled = false;
+scene.add(trailPoints);
+let trailHead = 0;
+let trailEmitTimer = 0;
+
+// ---------- drifting pollen + cherry petals ----------
+const POLLEN_COUNT = 600;
+const pollenGeo = new THREE.BufferGeometry();
+const pollenPos = new Float32Array(POLLEN_COUNT*3);
+const pollenSeed = new Float32Array(POLLEN_COUNT);
+for (let i=0; i<POLLEN_COUNT; i++){
+  pollenPos[i*3]   = (Math.random()-0.5)*1400;
+  pollenPos[i*3+1] = -20 + Math.random()*220;
+  pollenPos[i*3+2] = (Math.random()-0.5)*1400;
+  pollenSeed[i] = Math.random()*1000;
+}
+pollenGeo.setAttribute('position', new THREE.BufferAttribute(pollenPos, 3));
+const pollenTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(16,16,0,16,16,16);
+  g.addColorStop(0,'rgba(255,220,200,1)');
+  g.addColorStop(0.5,'rgba(255,180,210,0.8)');
+  g.addColorStop(1,'rgba(255,200,220,0)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,32,32);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+const pollenMat = new THREE.PointsMaterial({
+  size: 0.9, map: pollenTex, transparent:true, depthWrite:false,
+  blending: THREE.AdditiveBlending, sizeAttenuation:true, color:0xffd9e8, opacity:0.7,
+});
+const pollen = new THREE.Points(pollenGeo, pollenMat);
+pollen.frustumCulled = false;
+scene.add(pollen);
+
+// ---------- floating wisp guide (leads to nearest unvisited island) ----------
+const wispMat = new THREE.SpriteMaterial({
+  map: fireflyTex, transparent:true, depthWrite:false,
+  blending: THREE.AdditiveBlending, color: 0xb6f0ff, opacity:0.95,
+});
+const wisp = new THREE.Sprite(wispMat);
+wisp.scale.set(2.4, 2.4, 1);
+wisp.position.set(0, 100, 0);
+scene.add(wisp);
+const wispHaloMat = new THREE.SpriteMaterial({
+  map: fireflyTex, transparent:true, depthWrite:false,
+  blending: THREE.AdditiveBlending, color: 0x9ad9ff, opacity:0.4,
+});
+const wispHalo = new THREE.Sprite(wispHaloMat);
+wispHalo.scale.set(5.5, 5.5, 1);
+wisp.add(wispHalo);
+const visitedIslands = new Set();
+
+// ---------- aurora ribbons (drape across the upper sky) ----------
+const auroraGroup = new THREE.Group();
+const AURORA_UNIFORMS = { value: 0 };
+function makeAuroraRibbon(yBase, color1, color2){
+  const w = 1200, h = 90, segs = 60;
+  const g = new THREE.PlaneGeometry(w, h, segs, 4);
+  const pos = g.attributes.position;
+  for (let i=0; i<pos.count; i++){
+    const x = pos.getX(i);
+    const wave = Math.sin(x*0.004) * 60 + Math.cos(x*0.011)*25;
+    pos.setZ(i, wave);
+  }
+  pos.needsUpdate = true;
+  const mat = new THREE.ShaderMaterial({
+    transparent:true, depthWrite:false, blending: THREE.AdditiveBlending, side:THREE.DoubleSide, fog:false,
+    uniforms: { uTime: AURORA_UNIFORMS, uC1:{value:new THREE.Color(color1)}, uC2:{value:new THREE.Color(color2)} },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      varying vec2 vUv; uniform float uTime; uniform vec3 uC1; uniform vec3 uC2;
+      void main(){
+        float band = smoothstep(0.0, 0.5, vUv.y) * smoothstep(1.0, 0.5, vUv.y);
+        float flow = sin(vUv.x*18.0 + uTime*0.6) * 0.5 + 0.5;
+        flow *= sin(vUv.x*7.0 - uTime*0.4) * 0.5 + 0.5;
+        vec3 c = mix(uC1, uC2, flow);
+        float a = band * (0.45 + flow*0.55);
+        gl_FragColor = vec4(c, a*0.55);
+      }`,
+  });
+  const m = new THREE.Mesh(g, mat);
+  m.position.y = yBase;
+  m.rotation.x = -0.15;
+  return m;
+}
+auroraGroup.add(makeAuroraRibbon(380, 0x6affc8, 0x9a8cff));
+auroraGroup.add(makeAuroraRibbon(420, 0xff9ad9, 0x6affe0));
+auroraGroup.add(makeAuroraRibbon(360, 0x88bfff, 0xc890ff));
+auroraGroup.children[1].rotation.y = 0.6;
+auroraGroup.children[2].rotation.y = -0.7;
+scene.add(auroraGroup);
+
+// ---------- whoosh shockwave on sprint start ----------
+const SHOCK_MAX = 6;
+const shocks = []; // { mesh, life, max }
+const shockTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(64,64,40,64,64,64);
+  g.addColorStop(0,'rgba(255,255,255,0)');
+  g.addColorStop(0.7,'rgba(255,240,255,0.85)');
+  g.addColorStop(1,'rgba(255,200,240,0)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,128,128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+function spawnShockwave(){
+  if (shocks.length >= SHOCK_MAX) return;
+  const m = new THREE.Mesh(
+    new THREE.RingGeometry(0.5, 0.8, 36),
+    new THREE.MeshBasicMaterial({ map: shockTex, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, color:0xffd9f2, side:THREE.DoubleSide })
+  );
+  m.position.copy(player.pos);
+  m.rotation.x = -Math.PI/2;
+  scene.add(m);
+  shocks.push({ mesh:m, life: 0, max: 0.6 });
+}
+
+// ---------- arrival chime + sparkle burst ----------
+let _audioCtx = null;
+function playChime(){
+  try {
+    _audioCtx = _audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = _audioCtx;
+    if (ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+    [880, 1320, 1760].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, now + i*0.07);
+      g.gain.exponentialRampToValueAtTime(0.18, now + i*0.07 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + i*0.07 + 0.6);
+      o.connect(g).connect(ctx.destination);
+      o.start(now + i*0.07); o.stop(now + i*0.07 + 0.7);
+    });
+  } catch(e){ /* audio is best-effort */ }
+}
+const BURST_MAX = 80;
+const burstGeo = new THREE.BufferGeometry();
+const burstPos = new Float32Array(BURST_MAX*3);
+const burstVel = new Float32Array(BURST_MAX*3);
+const burstLife = new Float32Array(BURST_MAX);
+for (let i=0; i<BURST_MAX; i++){ burstPos[i*3] = burstPos[i*3+1] = burstPos[i*3+2] = 1e6; }
+burstGeo.setAttribute('position', new THREE.BufferAttribute(burstPos, 3));
+const burstMat = new THREE.PointsMaterial({
+  size: 1.4, map: fireflyTex, transparent:true, depthWrite:false,
+  blending: THREE.AdditiveBlending, sizeAttenuation:true, color:0xffe9c8, opacity:1.0,
+});
+const burstPoints = new THREE.Points(burstGeo, burstMat);
+burstPoints.frustumCulled = false;
+scene.add(burstPoints);
+let burstHead = 0;
+function spawnArrivalBurst(x, y, z){
+  for (let k=0; k<40; k++){
+    const i = burstHead;
+    burstPos[i*3]   = x;
+    burstPos[i*3+1] = y;
+    burstPos[i*3+2] = z;
+    const a = Math.random()*Math.PI*2;
+    const sp = 4 + Math.random()*6;
+    burstVel[i*3]   = Math.cos(a)*sp;
+    burstVel[i*3+1] = 2 + Math.random()*4;
+    burstVel[i*3+2] = Math.sin(a)*sp;
+    burstLife[i] = 1.0;
+    burstHead = (burstHead + 1) % BURST_MAX;
+  }
+}
+
+// ---------- Discord member butterflies (one per server member, orbits the island) ----------
+const memberButterflies = []; // { sprite, label, island, angle, omega, radius, alt, bob, name }
+function hashStrToHue(s){
+  let h = 0; for (let i=0; i<s.length; i++){ h = (h*31 + s.charCodeAt(i)) >>> 0; }
+  return (h % 1000) / 1000;
+}
+function makeNameLabel(name){
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.font = 'bold 24px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(40,20,55,0.65)';
+  const w = Math.min(244, ctx.measureText(name).width + 24);
+  const x = 128 - w/2;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, 18, w, 32, 12); else ctx.rect(x, 18, w, 32);
+  ctx.fill();
+  ctx.fillStyle = '#ffe9f9';
+  ctx.fillText(name, 128, 34);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// ---------- resting butterflies on flowers (registered by buildIsland) ----------
+const restingButterflies = []; // { sprite, basePos, state:'rest'|'fly', flyT, flyDir }
+function makeRestingButterflyTexture(hue){
+  const c = document.createElement('canvas');
+  c.width = c.height = 32;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#3b2a4a';
+  ctx.fillRect(15, 11, 2, 10);
+  const col = `hsl(${Math.floor(hue*360)} 80% 70%)`;
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.ellipse(10, 13,  8, 7, -0.4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(22, 13,  8, 7,  0.4, 0, Math.PI*2); ctx.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// ---------- player ----------
+const player = {
+  pos: new THREE.Vector3(0, 90, 0),
+  vel: new THREE.Vector3(),
+  radius: 0.6,
+  height: 1.7,
+  onGround: false,
+  flying: true, // fairies fly — islands are in the sky
+};
+
+// ----- chibi fairy avatar -----
+const avatarGroup = new THREE.Group();
+
+// dress (cone, wider at bottom, pink)
+const dress = new THREE.Mesh(
+  new THREE.ConeGeometry(0.45, 0.85, 12, 1, true),
+  new THREE.MeshStandardMaterial({ color:0xff7ab3, flatShading:true, roughness:0.6, side:THREE.DoubleSide })
+);
+dress.position.y = 0.55;
+avatarGroup.add(dress);
+
+// torso (small)
+const torso = new THREE.Mesh(
+  new THREE.SphereGeometry(0.22, 12, 10),
+  new THREE.MeshStandardMaterial({ color:0xffe2cf, roughness:0.55 })
+);
+torso.position.y = 1.05;
+torso.scale.set(1, 0.9, 0.85);
+avatarGroup.add(torso);
+
+// arms
+for (const side of [-1, 1]){
+  const arm = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.07, 0.3, 4, 8),
+    new THREE.MeshStandardMaterial({ color:0xffe2cf, roughness:0.55 })
+  );
+  arm.position.set(side*0.24, 0.95, 0);
+  arm.rotation.z = side*0.5;
+  avatarGroup.add(arm);
+}
+
+// legs (tiny)
+for (const side of [-1, 1]){
+  const leg = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.07, 0.2, 4, 8),
+    new THREE.MeshStandardMaterial({ color:0xffe2cf, roughness:0.55 })
+  );
+  leg.position.set(side*0.1, 0.18, 0);
+  avatarGroup.add(leg);
+}
+
+// big chibi head with face texture
+function makeFaceTexture(){
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  // skin
+  ctx.fillStyle = '#ffe2cf';
+  ctx.fillRect(0, 0, 256, 256);
+  // hair fringe (top)
+  ctx.fillStyle = '#a14ec6';
+  ctx.beginPath();
+  ctx.moveTo(20, 80);
+  ctx.bezierCurveTo(80, 0, 176, 0, 236, 80);
+  ctx.lineTo(236, 0); ctx.lineTo(20, 0); ctx.closePath();
+  ctx.fill();
+  // side bangs
+  ctx.fillStyle = '#a14ec6';
+  ctx.beginPath(); ctx.ellipse(40, 100, 30, 60, 0.2, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(216, 100, 30, 60, -0.2, 0, Math.PI*2); ctx.fill();
+  // sparkly anime eyes
+  for (const ex of [88, 168]){
+    // eye white
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.ellipse(ex, 140, 24, 30, 0, 0, Math.PI*2); ctx.fill();
+    // iris (purple)
+    ctx.fillStyle = '#7c4dca';
+    ctx.beginPath(); ctx.ellipse(ex, 145, 18, 22, 0, 0, Math.PI*2); ctx.fill();
+    // pupil
+    ctx.fillStyle = '#1a0a2a';
+    ctx.beginPath(); ctx.ellipse(ex, 148, 9, 14, 0, 0, Math.PI*2); ctx.fill();
+    // sparkle highlight
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.ellipse(ex-5, 138, 6, 8, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(ex+8, 152, 3, 4, 0, 0, Math.PI*2); ctx.fill();
+    // lashes
+    ctx.strokeStyle = '#1a0a2a'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(ex-22, 122); ctx.lineTo(ex+22, 122); ctx.stroke();
+  }
+  // blush
+  ctx.fillStyle = 'rgba(255,140,180,0.55)';
+  ctx.beginPath(); ctx.ellipse(70, 175, 16, 8, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(186, 175, 16, 8, 0, 0, Math.PI*2); ctx.fill();
+  // smile
+  ctx.strokeStyle = '#a14a6a'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(118, 195); ctx.quadraticCurveTo(128, 205, 138, 195); ctx.stroke();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const faceTex = makeFaceTexture();
+const headMat = new THREE.MeshStandardMaterial({ map: faceTex, roughness:0.5 });
+const avatarHead = new THREE.Mesh(
+  new THREE.SphereGeometry(0.42, 24, 18),
+  headMat
+);
+avatarHead.position.y = 1.5;
+// rotate so face (texture center) faces +Z (forward)
+avatarHead.rotation.y = -Math.PI/2;
+avatarGroup.add(avatarHead);
+
+// hair cap — covers top + back + sides of head (everything except the face)
+const hairColor = 0xa14ec6;
+const hairCap = new THREE.Mesh(
+  new THREE.SphereGeometry(0.45, 24, 18),
+  new THREE.MeshStandardMaterial({ color:hairColor, roughness:0.7 })
+);
+hairCap.position.set(0, 1.5, -0.04);
+hairCap.scale.set(1.04, 1.05, 1.0);
+// clip the front face area with morph: instead, just push front vertices back so face shows
+{
+  const pos = hairCap.geometry.attributes.position;
+  for (let v=0; v<pos.count; v++){
+    const x = pos.getX(v), y = pos.getY(v), z = pos.getZ(v);
+    // if this vertex is on the front and roughly at face height, hide it (collapse to center)
+    if (z > 0.05 && y > -0.18 && y < 0.22 && Math.abs(x) < 0.32){
+      pos.setX(v, 0); pos.setY(v, y*0.4); pos.setZ(v, 0);
+    }
+  }
+  pos.needsUpdate = true;
+  hairCap.geometry.computeVertexNormals();
+}
+avatarGroup.add(hairCap);
+
+// flowing back hair (longer, drapes behind shoulders)
+const hairBack = new THREE.Mesh(
+  new THREE.SphereGeometry(0.42, 16, 12),
+  new THREE.MeshStandardMaterial({ color:hairColor, roughness:0.7 })
+);
+hairBack.position.set(0, 1.25, -0.22);
+hairBack.scale.set(0.95, 1.4, 0.55);
+avatarGroup.add(hairBack);
+
+// front bangs (small triangle of hair drooping over forehead)
+const bangs = new THREE.Mesh(
+  new THREE.SphereGeometry(0.18, 12, 8, 0, Math.PI*2, 0, Math.PI/2),
+  new THREE.MeshStandardMaterial({ color:hairColor, roughness:0.7 })
+);
+bangs.position.set(0, 1.78, 0.28);
+bangs.rotation.x = -0.3;
+bangs.scale.set(1.5, 0.4, 0.6);
+avatarGroup.add(bangs);
+
+// little flower hair clip on the side
+const clip = new THREE.Mesh(
+  new THREE.SphereGeometry(0.08, 8, 6),
+  new THREE.MeshStandardMaterial({ color:0xffd485, emissive:0xffd485, emissiveIntensity:0.3 })
+);
+clip.position.set(0.32, 1.72, 0.12);
+clip.scale.y = 0.5;
+avatarGroup.add(clip);
+
+// ----- fluffy iridescent wings -----
+function makeWingTexture(){
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 192;
+  const ctx = c.getContext('2d');
+  // gradient from cyan to pink
+  const g = ctx.createLinearGradient(0,0,128,192);
+  g.addColorStop(0, 'rgba(180,240,255,0.85)');
+  g.addColorStop(0.5,'rgba(220,180,255,0.85)');
+  g.addColorStop(1,'rgba(255,180,220,0.85)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,128,192);
+  // veins
+  ctx.strokeStyle = 'rgba(140,80,180,0.45)';
+  ctx.lineWidth = 1.3;
+  for (let i=0;i<5;i++){
+    ctx.beginPath();
+    ctx.moveTo(64, 0); ctx.quadraticCurveTo(20+i*22, 96, 64, 192); ctx.stroke();
+  }
+  // glitter
+  for (let i=0;i<40;i++){
+    ctx.fillStyle = `rgba(255,255,255,${0.3+Math.random()*0.5})`;
+    ctx.fillRect(Math.random()*128, Math.random()*192, 1.5, 1.5);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const wingTex = makeWingTexture();
+function makeWing(side){
+  const wingShape = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.65, 0.95),
+    new THREE.MeshStandardMaterial({ map:wingTex, transparent:true, opacity:0.85, side:THREE.DoubleSide, emissive:0xc9c8ff, emissiveIntensity:0.2, depthWrite:false })
+  );
+  wingShape.position.set(side*0.28, 1.05, -0.18);
+  wingShape.rotation.set(0.1, side*0.5, side*0.1);
+  return wingShape;
+}
+const wing  = makeWing(-1); avatarGroup.add(wing);
+const wing2 = makeWing( 1); avatarGroup.add(wing2);
+avatarGroup.userData.wings = [wing, wing2];
+
+scene.add(avatarGroup);
+
+// Swap in the user-supplied character GLB once it loads (replaces the
+// procedural chibi fairy). We keep the outer avatarGroup as a container so
+// the rest of the code (position/rotation updates, third-person camera,
+// proximity checks) keeps working unchanged.
+function installCharacterModel(model){
+  // remove old procedural parts (and any wing references)
+  const old = [...avatarGroup.children];
+  old.forEach(c => avatarGroup.remove(c));
+  avatarGroup.userData.wings = null;
+  avatarGroup.userData.isButterfly = false;
+  avatarGroup.userData.flapUniform = null;
+  const clone = model.clone(true);
+  avatarGroup.add(clone);
+  if (model.userData.isButterfly){
+    // Share the original flap uniform across the clone's mesh material —
+    // SkinnedMesh.clone shares materials by default, so the same shader
+    // instance reads from this one uniform.
+    avatarGroup.userData.isButterfly = true;
+    avatarGroup.userData.flapUniform = model.userData.flapUniform || null;
+  }
+}
+if (ASSETS.character) installCharacterModel(ASSETS.character);
+else ASSET_CALLBACKS.character.push(installCharacterModel);
+
+// ---------- controls ----------
+const controls = new PointerLockControls(camera, renderer.domElement);
+scene.add(controls.getObject());
+const camHolder = controls.getObject();
+
+controls.addEventListener('lock', () => { blocker.style.display = 'none'; hasEntered = true; });
+controls.addEventListener('unlock', () => {
+  // Don't bring back the blocker on plain Esc — the user may want to take
+  // a screenshot. Only show it again if chat is open OR they haven't entered yet.
+  if (chatEl.style.display === 'block') return;
+  if (!hasEntered) {
+    blocker.style.display = 'flex';
+    loginPanel.style.display = 'none';
+    enterPanel.style.display = '';
+  }
+});
+let hasEntered = false;
+
+const keys = Object.create(null);
+addEventListener('keydown', e => {
+  const wasShift = keys['ShiftLeft'] || keys['ShiftRight'];
+  keys[e.code] = true;
+  const nowShift = keys['ShiftLeft'] || keys['ShiftRight'];
+  // whoosh shockwave on sprint start
+  if (!wasShift && nowShift && controls.isLocked) spawnShockwave();
+  // T to open chat — when in pointer lock & near a portal
+  if (e.code === 'KeyT' && controls.isLocked && nearestPortal && nearestIsland){
+    e.preventDefault();
+    openChat(nearestIsland, nearestPortal.channel);
+  }
+
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+
+// ---------- postprocessing: bloom ----------
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(Math.min(devicePixelRatio, 2));
+composer.setSize(innerWidth, innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.4, 0.7);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+  bloomPass.setSize(innerWidth, innerHeight);
+});
+
+// ---------- physics + loop ----------
+const GRAVITY = 22, SPEED = 14, SPRINT = 26, JUMP_V = 8.5;
+const PORTAL_RADIUS = 6.0;
+const tmpForward = new THREE.Vector3();
+const tmpRight = new THREE.Vector3();
+const moveDir = new THREE.Vector3();
+let lastT = performance.now();
+let totalT = 0;
+let fpsAcc = 0, fpsCount = 0, fpsTimer = 0;
+let nearestIsland = null, nearestPortal = null;
+
+function update(dt){
+  totalT += dt;
+
+  // ----- breeze: drives grass shader sway + tree gentle rotation -----
+  WIND.value = totalT;
+  for (let i=0; i<swayTrees.length; i++){
+    const t = swayTrees[i];
+    const ph = t.userData.swayPhase;
+    const a  = t.userData.swayAmp;
+    t.rotation.z = (t.userData.baseRotZ || 0) + Math.sin(totalT*0.9 + ph) * a;
+    t.rotation.x = (t.userData.baseRotX || 0) + Math.cos(totalT*0.7 + ph*1.3) * a*0.8;
+  }
+
+  camHolder.getWorldDirection(tmpForward);
+  tmpForward.y = 0; tmpForward.normalize();
+  tmpRight.crossVectors(tmpForward, new THREE.Vector3(0,1,0)).normalize();
+
+  moveDir.set(0,0,0);
+  if (keys['KeyW']) moveDir.add(tmpForward);
+  if (keys['KeyS']) moveDir.sub(tmpForward);
+  if (keys['KeyD']) moveDir.add(tmpRight);
+  if (keys['KeyA']) moveDir.sub(tmpRight);
+  if (moveDir.lengthSq() > 0) moveDir.normalize();
+
+  const sprinting = keys['ShiftLeft'] || keys['ShiftRight'];
+
+  if (player.flying){
+    const flySpeed = sprinting ? SPRINT*1.4 : SPEED*1.4;
+    player.vel.x = moveDir.x * flySpeed;
+    player.vel.z = moveDir.z * flySpeed;
+    let vy = 0;
+    if (keys['Space']) vy += flySpeed;
+    if (keys['ControlLeft'] || keys['ControlRight'] || keys['KeyC']) vy -= flySpeed;
+    player.vel.y = vy;
+    player.pos.x += player.vel.x * dt;
+    player.pos.y += player.vel.y * dt;
+    player.pos.z += player.vel.z * dt;
+  } else {
+    const speed = sprinting ? SPRINT : SPEED;
+    player.vel.x = moveDir.x * speed;
+    player.vel.z = moveDir.z * speed;
+    if (keys['Space'] && player.onGround){ player.vel.y = JUMP_V; player.onGround = false; }
+    player.vel.y -= GRAVITY * dt;
+    player.pos.x += player.vel.x * dt;
+    player.pos.y += player.vel.y * dt;
+    player.pos.z += player.vel.z * dt;
+  }
+
+  let standingOn = null;
+  let ground = -Infinity;
+  for (const isl of islands){
+    const dx = player.pos.x - isl.center.x;
+    const dz = player.pos.z - isl.center.y;
+    const dist = Math.hypot(dx, dz);
+    const horizR = isl.radius + player.radius;
+    if (dist < horizR){
+      const top = isl.topY;
+      const above = player.pos.y - top;
+      if (above >= -0.01){
+        if (top > ground){ ground = top; standingOn = isl; }
+      } else if (above > -3.0){
+        // close to the top from below/inside → snap up (prevents falling through)
+        player.pos.y = top;
+        player.vel.y = 0;
+        if (top > ground){ ground = top; standingOn = isl; }
+      } else {
+        // deep inside the cliff → push horizontally out
+        const overlap = horizR - dist + 0.001;
+        if (dist > 0.0001){
+          player.pos.x += (dx/dist) * overlap;
+          player.pos.z += (dz/dist) * overlap;
+        } else { player.pos.x += overlap; }
+      }
+    }
+  }
+
+  const seaFloor = -60; // far below — fairy can't really land in the water
+  if (standingOn && player.pos.y <= ground){
+    player.pos.y = ground; player.vel.y = 0; player.onGround = true;
+  } else {
+    if (player.pos.y < seaFloor) player.pos.y = seaFloor;
+    player.onGround = false;
+  }
+
+  // avatar
+  avatarGroup.position.set(player.pos.x, player.pos.y, player.pos.z);
+  if (moveDir.lengthSq() > 0.001){
+    const targetYaw = Math.atan2(moveDir.x, moveDir.z);
+    avatarGroup.rotation.y = lerpAngle(avatarGroup.rotation.y, targetYaw, 0.18);
+  }
+  // ----- sparkle trail -----
+  trailEmitTimer += dt;
+  const movingFast = (Math.abs(player.vel.x) + Math.abs(player.vel.z) + Math.abs(player.vel.y)) > 0.5;
+  const emitInterval = movingFast ? 0.018 : 0.08;
+  while (trailEmitTimer > emitInterval){
+    trailEmitTimer -= emitInterval;
+    const i = trailHead;
+    // jitter behind the butterfly so the trail isn't a tight line
+    const jx = (Math.random()-0.5)*0.6;
+    const jy = (Math.random()-0.5)*0.4 + 0.1;
+    const jz = (Math.random()-0.5)*0.6;
+    trailPos[i*3]   = player.pos.x + jx;
+    trailPos[i*3+1] = player.pos.y + jy;
+    trailPos[i*3+2] = player.pos.z + jz;
+    trailLife[i] = movingFast ? 1.0 : 0.55;
+    trailHead = (trailHead + 1) % TRAIL_COUNT;
+  }
+  // age & gentle drift upward
+  for (let i=0; i<TRAIL_COUNT; i++){
+    if (trailLife[i] > 0){
+      trailLife[i] = Math.max(0, trailLife[i] - dt*0.6);
+      trailPos[i*3+1] += dt * 0.4;
+      // hide expired
+      if (trailLife[i] <= 0){
+        trailPos[i*3] = trailPos[i*3+1] = trailPos[i*3+2] = 1e6;
+      }
+    }
+  }
+  trailGeo.attributes.position.needsUpdate = true;
+
+  // wing flap
+  if (avatarGroup.userData.isButterfly && avatarGroup.userData.flapUniform){
+    // Vertex-shader-driven flap — the uniform is the rotation angle each
+    // side rotates (mirrored). Sin wave for a smooth flutter.
+    avatarGroup.userData.flapUniform.value = Math.sin(totalT*14) * 1.0;
+  } else if (avatarGroup.userData.wings){
+    const wings = avatarGroup.userData.wings;
+    const flap = Math.sin(totalT*22) * 0.4;
+    wings[0].rotation.y = -0.5 - flap;
+    wings[1].rotation.y =  0.5 + flap;
+  }
+
+  // camera (third-person)
+  const camOffset = new THREE.Vector3();
+  camHolder.getWorldDirection(camOffset);
+  camOffset.multiplyScalar(-5.2);
+  camOffset.y = 2.2;
+  camHolder.position.set(player.pos.x + camOffset.x, player.pos.y + camOffset.y, player.pos.z + camOffset.z);
+
+  // ----- portal proximity -----
+  // Find nearest portal across ALL islands within reach (so flying users
+  // can hover near a portal without standing on the island).
+  nearestPortal = null;
+  nearestIsland = standingOn;
+  let bestD = PORTAL_RADIUS*PORTAL_RADIUS;
+  for (const isl of islands){
+    for (const p of isl.portals){
+      const wp = new THREE.Vector3();
+      p.mesh.getWorldPosition(wp);
+      const dx = wp.x - player.pos.x, dy = wp.y - player.pos.y, dz = wp.z - player.pos.z;
+      const d2 = dx*dx + dy*dy + dz*dz;
+      if (d2 < bestD){ bestD = d2; nearestPortal = p; nearestIsland = isl; }
+      if (p.mesh.userData.ring){
+        const pulse = 1 + Math.sin(totalT*3 + p.mesh.position.x) * 0.08;
+        p.mesh.userData.ring.scale.setScalar(pulse);
+      }
+    }
+  }
+  if (nearestPortal){
+    promptEl.style.display = 'block';
+    promptName.textContent = '#' + nearestPortal.channel.name;
+    enterBtn.style.display = 'block';
+    enterBtnName.textContent = '#' + nearestPortal.channel.name;
+  } else {
+    promptEl.style.display = 'none';
+    enterBtn.style.display = 'none';
+  }
+
+  // ----- HUD island name -----
+  const here = standingOn ? standingOn.name : 'the overworld';
+  if (islandNameEl.textContent !== here) islandNameEl.textContent = here;
+
+  // ----- ambient world animation -----
+  // butterflies
+  for (const b of butterflies){
+    const ang = totalT * b.speed + b.phase;
+    b.sprite.position.x = b.cx + Math.cos(ang) * b.r;
+    b.sprite.position.z = b.cz + Math.sin(ang) * b.r;
+    b.sprite.position.y = b.cy + Math.sin(totalT * b.bobF + b.phase) * b.bobA;
+    // flutter scale
+    const f = 1 + Math.sin(totalT*15 + b.phase)*0.18;
+    b.sprite.scale.set(1.4*f, 1.4, 1);
+  }
+  // fireflies (simple wander via shader-less point movement every other frame)
+  const ffp = fireflyGeo.attributes.position;
+  for (let i=0;i<FIREFLY_COUNT;i++){
+    const seed = ffSeed[i];
+    ffp.array[i*3+1] = 30 + Math.sin(totalT*0.6 + seed)*8 + (seed%50);
+    ffp.array[i*3]   += Math.sin(totalT*0.5 + seed*0.13) * 0.04;
+    ffp.array[i*3+2] += Math.cos(totalT*0.4 + seed*0.17) * 0.04;
+  }
+  ffp.needsUpdate = true;
+
+  // waterfall scrolling
+  for (const t of WATERFALL_MATS){ t.offset.y = -totalT * 1.2; }
+
+  // gentle ocean waves (every other frame to save cycles)
+  if ((Math.floor(totalT*30) & 1) === 0) animateOcean(totalT);
+
+  // ----- pollen / petal drift -----
+  const pp = pollenGeo.attributes.position;
+  for (let i=0; i<POLLEN_COUNT; i++){
+    const s = pollenSeed[i];
+    pp.array[i*3]   += Math.sin(totalT*0.3 + s*0.21) * 0.06;
+    pp.array[i*3+1] += Math.sin(totalT*0.5 + s*0.13) * 0.02 + 0.015;
+    pp.array[i*3+2] += Math.cos(totalT*0.4 + s*0.17) * 0.06;
+    // wrap upward drift back to underworld so the cloud never empties
+    if (pp.array[i*3+1] > 240){ pp.array[i*3+1] = -20; }
+  }
+  pp.needsUpdate = true;
+
+  // ----- aurora time -----
+  AURORA_UNIFORMS.value = totalT;
+
+  // ----- shockwaves expand & fade -----
+  for (let i=shocks.length-1; i>=0; i--){
+    const s = shocks[i];
+    s.life += dt;
+    const t = s.life / s.max;
+    const sc = 0.5 + t * 14;
+    s.mesh.scale.setScalar(sc);
+    s.mesh.material.opacity = Math.max(0, 1 - t);
+    if (t >= 1){
+      scene.remove(s.mesh);
+      s.mesh.geometry.dispose();
+      s.mesh.material.dispose();
+      shocks.splice(i, 1);
+    }
+  }
+
+  // ----- arrival sparkle burst particles -----
+  for (let i=0; i<BURST_MAX; i++){
+    if (burstLife[i] > 0){
+      burstLife[i] = Math.max(0, burstLife[i] - dt*0.7);
+      burstPos[i*3]   += burstVel[i*3]   * dt;
+      burstPos[i*3+1] += burstVel[i*3+1] * dt;
+      burstPos[i*3+2] += burstVel[i*3+2] * dt;
+      burstVel[i*3+1] -= 4 * dt; // light gravity
+      if (burstLife[i] <= 0){
+        burstPos[i*3] = burstPos[i*3+1] = burstPos[i*3+2] = 1e6;
+      }
+    }
+  }
+  burstGeo.attributes.position.needsUpdate = true;
+
+  // ----- arrival chime + burst when landing on a NEW island -----
+  if (standingOn && !visitedIslands.has(standingOn)){
+    visitedIslands.add(standingOn);
+    spawnArrivalBurst(standingOn.center.x, standingOn.topY + 1.5, standingOn.center.y);
+    playChime();
+  }
+
+  // ----- wisp guide: drifts toward nearest unvisited island -----
+  let wispTarget = null;
+  let wbest = Infinity;
+  for (const isl of islands){
+    if (visitedIslands.has(isl)) continue;
+    const dx = isl.center.x - player.pos.x;
+    const dz = isl.center.y - player.pos.z;
+    const d2 = dx*dx + dz*dz;
+    if (d2 < wbest){ wbest = d2; wispTarget = isl; }
+  }
+  if (wispTarget){
+    // hover ahead of the player along the path to the target
+    const dx = wispTarget.center.x - player.pos.x;
+    const dz = wispTarget.center.y - player.pos.z;
+    const d  = Math.hypot(dx, dz) || 1;
+    const lead = Math.min(8, d*0.4);
+    const tx = player.pos.x + (dx/d)*lead;
+    const tz = player.pos.z + (dz/d)*lead;
+    const ty = player.pos.y + 2.4 + Math.sin(totalT*1.7)*0.6;
+    wisp.position.x += (tx - wisp.position.x) * Math.min(1, dt*2.5);
+    wisp.position.y += (ty - wisp.position.y) * Math.min(1, dt*2.5);
+    wisp.position.z += (tz - wisp.position.z) * Math.min(1, dt*2.5);
+    wisp.visible = true;
+  } else {
+    wisp.visible = false;
+  }
+
+  // ----- resting butterflies: take off when player approaches -----
+  const RB_NEAR = 6, RB_FLY_T = 4.5;
+  for (const r of restingButterflies){
+    if (r.state === 'rest'){
+      // measure world distance (sprite is parented to island body)
+      const wp = new THREE.Vector3();
+      r.sprite.getWorldPosition(wp);
+      // gentle idle bob
+      const idle = Math.sin(totalT*2 + wp.x*0.3) * 0.05;
+      r.sprite.scale.set(0.9 + idle, 0.9 + idle*0.5, 1);
+      const dx = wp.x - player.pos.x, dy = wp.y - player.pos.y, dz = wp.z - player.pos.z;
+      if (Math.hypot(dx, dy, dz) < RB_NEAR){
+        r.state = 'fly';
+        r.flyT = 0;
+        // parent to scene so it can fly away independently of island
+        r.sprite.parent.remove(r.sprite);
+        r.sprite.position.copy(wp);
+        scene.add(r.sprite);
+      }
+    } else {
+      r.flyT += dt;
+      const flutter = 1 + Math.sin(totalT*22 + r.sprite.position.x)*0.3;
+      r.sprite.scale.set(0.9*flutter, 0.9, 1);
+      r.sprite.position.x += r.flyDir.x * dt * 6;
+      r.sprite.position.y += (r.flyDir.y + 0.4) * dt * 4;
+      r.sprite.position.z += r.flyDir.z * dt * 6;
+      if (r.flyT > RB_FLY_T){
+        scene.remove(r.sprite);
+        r.sprite.material.dispose();
+        r._dead = true;
+      }
+    }
+  }
+  for (let i=restingButterflies.length-1; i>=0; i--){
+    if (restingButterflies[i]._dead) restingButterflies.splice(i, 1);
+  }
+
+  // ----- Discord member butterflies orbit their island (presence-aware) -----
+  for (const mb of memberButterflies){
+    // status drives behavior:
+    //   online → full speed orbit, full opacity, bright
+    //   idle   → slow orbit, lower altitude, dimmer
+    //   dnd    → very slow orbit, reddish tint
+    //   offline → perched on the island, faint, no orbit
+    let speedMul = 1, alpha = 1, flapMul = 1, altOff = 0;
+    if (mb.status === 'idle'){ speedMul = 0.35; alpha = 0.7; flapMul = 0.4; altOff = -2; }
+    else if (mb.status === 'dnd'){ speedMul = 0.15; alpha = 0.85; flapMul = 0.3; }
+    else if (mb.status === 'offline'){ speedMul = 0; alpha = 0.25; flapMul = 0; altOff = -(mb.alt - mb.island.topY) + 0.6; }
+
+    mb.angle += mb.omega * dt * speedMul;
+    const cx = mb.island.center.x;
+    const cz = mb.island.center.y;
+    const x = cx + Math.cos(mb.angle) * mb.radius;
+    const z = cz + Math.sin(mb.angle) * mb.radius;
+    const y = mb.alt + altOff + Math.sin(totalT*1.4 + mb.bob) * 1.2 * (mb.status === 'offline' ? 0 : 1);
+    mb.mesh.position.set(x, y, z);
+    // Face the direction of travel (tangent to the orbit).
+    if (!mb.mesh.isSprite){
+      mb.mesh.rotation.y = -mb.angle + Math.PI * 0.5;
+    }
+    // Drive the wing flap if this is a real 3D butterfly.
+    if (mb.flapUniform){
+      mb.flapUniform.value = Math.sin(totalT * 14 + mb.bob) * 0.9 * flapMul;
+    } else {
+      const f = 1 + Math.sin(totalT*14 + mb.bob) * 0.18 * flapMul;
+      mb.mesh.scale.set(1.4*f, 1.4, 1);
+    }
+    if (mb.material){
+      mb.material.opacity = alpha;
+      mb.material.transparent = true;
+      if (mb.status === 'dnd') mb.material.color.setRGB(1.0, 0.55, 0.55);
+    }
+    // show label only when player is close
+    const dx = x - player.pos.x, dy = y - player.pos.y, dz = z - player.pos.z;
+    mb.label.visible = (dx*dx + dy*dy + dz*dz) < 400; // 20-unit radius
+  }
+
+  // ----- time-of-day cycle (slow lerp; full loop ~6 minutes) -----
+  const tod = (totalT % 360) / 360; // 0..1
+  // 4 phases: dawn (warm), noon (bright), magic-hour (gold-pink), twilight (purple)
+  const todPhases = [
+    { sun:0xffd9a8, sunI:1.6, ambI:0.3, fog:0xf6dcc8, hemi:0.7 },   // dawn
+    { sun:0xffffe6, sunI:2.4, ambI:0.45, fog:0xc7e3eb, hemi:1.0 },  // noon
+    { sun:0xffb070, sunI:2.0, ambI:0.4,  fog:0xffd9b8, hemi:0.85 }, // magic hour
+    { sun:0x8a7ad9, sunI:1.2, ambI:0.25, fog:0x4f4d8a, hemi:0.55 }, // twilight
+  ];
+  const todN = todPhases.length;
+  const todT = (Number.isFinite(tod) ? tod : 0) * todN;
+  let fi = Math.floor(todT) % todN;
+  if (fi < 0) fi += todN;
+  const ft = todT - Math.floor(todT);
+  const a = todPhases[fi] || todPhases[0];
+  const b = todPhases[(fi+1) % todN] || todPhases[0];
+  if (sun && sun.color){
+    sun.color.lerpColors(new THREE.Color(a.sun), new THREE.Color(b.sun), ft);
+    sun.intensity = a.sunI + (b.sunI - a.sunI) * ft;
+  }
+  if (scene.fog && scene.fog.color){
+    scene.fog.color.lerpColors(new THREE.Color(a.fog), new THREE.Color(b.fog), ft);
+  }
+  // ambient = scene.children[2] is the AmbientLight; safer: walk to find it
+  // (we know index from setup)
+  if (!update._lights){
+    update._lights = { ambient:null, hemi:null };
+    scene.traverse(o => {
+      if (o.isAmbientLight) update._lights.ambient = o;
+      if (o.isHemisphereLight) update._lights.hemi = o;
+    });
+  }
+  if (update._lights.ambient) update._lights.ambient.intensity = a.ambI + (b.ambI - a.ambI) * ft;
+  if (update._lights.hemi)    update._lights.hemi.intensity    = a.hemi + (b.hemi - a.hemi) * ft;
+}
+
+function lerpAngle(a, b, t){
+  let d = ((b - a + Math.PI) % (Math.PI*2)) - Math.PI;
+  if (d < -Math.PI) d += Math.PI*2;
+  return a + d*t;
+}
+
+function frame(now){
+  const dt = Math.min(0.05, (now - lastT)/1000);
+  lastT = now;
+  update(dt);
+  composer.render();
+  fpsAcc += 1/dt; fpsCount++; fpsTimer += dt;
+  if (fpsTimer >= 0.5){
+    fpsEl.textContent = (fpsAcc/fpsCount).toFixed(0) + ' fps';
+    fpsAcc = 0; fpsCount = 0; fpsTimer = 0;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---------- chat overlay ----------
+let activeIsland = null, activeChannel = null;
+const STUB_CHANNELS = (server) => {
+  // when we can't load real channels, give the island some pretend channels
+  const seed = hashStr(server.id);
+  const r = rng(seed);
+  const all = ['general','art','music','memes','dev','tea-time','quests','lounge','intro','off-topic','study','cosy'];
+  const out = [];
+  const pick = new Set();
+  while (out.length < 4){
+    const n = all[Math.floor(r()*all.length)];
+    if (!pick.has(n)){ pick.add(n); out.push({ id:`stub_${seed}_${n}`, name:n, type:0, stub:true }); }
+  }
+  return out;
+};
+
+async function loadChannelsForIsland(island){
+  if (island.channelsLoaded) return island._channels;
+  // de-dupe concurrent callers (proximity preloader + openChat) so the
+  // sidebar doesn't briefly empty itself while a second fetch is in
+  // flight overwriting the first.
+  if (island._channelsPromise) return island._channelsPromise;
+  island._channelsPromise = (async () => {
+    let channels = [];
+    if (!island.server.id || island.server.id.startsWith('demo-') || island.server.id === 'empty'){
+      channels = STUB_CHANNELS(island.server);
+    } else {
+      try {
+        const r = await fetch(`/api/guilds/${island.server.id}/channels`);
+        if (r.ok){
+          const data = await r.json();
+          channels = data.filter(c => c.type === 0).slice(0, 6); // text only
+        }
+      } catch {}
+      if (!channels.length) channels = STUB_CHANNELS(island.server);
+    }
+    island._channels = channels;
+    island.channelsLoaded = true;
+    island.placePortals(channels);
+    return channels;
+  })();
+  try {
+    return await island._channelsPromise;
+  } finally {
+    // keep the resolved value cached on _channels; drop the promise so
+    // a future force-reload could re-fetch.
+    island._channelsPromise = null;
+  }
+}
+
+async function loadMembersForIsland(island){
+  if (island.membersLoaded) return;
+  island.membersLoaded = true;
+  if (!island.server.id || island.server.id.startsWith('demo-') || island.server.id === 'empty') return;
+  let members = [];
+  try {
+    const r = await fetch(`/api/guilds/${island.server.id}/members`);
+    if (r.ok) members = await r.json();
+  } catch {}
+  if (!members.length) return;
+  // cap the visible swarm so a 5000-member server doesn't tank the GPU
+  const MAX = 60;
+  if (members.length > MAX) members = members.slice(0, MAX);
+  for (const m of members){
+    if (m.bot) continue;
+    const hue = hashStrToHue(m.id || m.username || 'x');
+    // Use the same 3D butterfly model as the player, just tinted differently.
+    // Falls back to a sprite if the OBJ hasn't finished loading yet.
+    const wrapper = makeButterflyInstance(hue, 2.0);
+    let mesh, material;
+    if (wrapper){
+      mesh = wrapper;
+      material = wrapper.userData.material;
+    } else {
+      const tex = makeRestingButterflyTexture(hue);
+      mesh = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent:true, depthWrite:false }));
+      mesh.scale.set(1.4, 1.4, 1);
+      material = mesh.material;
+    }
+    const lab = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeNameLabel(m.nick || m.username || '?'), transparent:true, depthWrite:false }));
+    lab.scale.set(4.0, 1.0, 1);
+    lab.position.y = 2.4;
+    lab.visible = false; // shown when player is near
+    mesh.add(lab);
+    scene.add(mesh);
+    memberButterflies.push({
+      mesh,
+      material,
+      flapUniform: wrapper ? wrapper.userData.flapUniform : null,
+      label: lab,
+      island,
+      userId: m.id,
+      status: m.status || 'offline',
+      angle: Math.random()*Math.PI*2,
+      omega: 0.12 + Math.random()*0.18,         // rad/sec
+      radius: island.radius + 4 + Math.random()*8,
+      alt: island.topY + 4 + Math.random()*16,
+      bob: Math.random()*Math.PI*2,
+      name: m.nick || m.username || '?',
+    });
+  }
+  // Start polling presence for this island.
+  pollPresenceForIsland(island);
+}
+
+// ---------- live presence polling ----------
+const presencePollers = new Map(); // islandId -> intervalId
+async function refreshPresenceForIsland(island){
+  try {
+    const r = await fetch(`/api/guilds/${island.server.id}/presences`);
+    if (!r.ok) return;
+    const j = await r.json();
+    const p = j.presences || {};
+    for (const mb of memberButterflies){
+      if (mb.island !== island) continue;
+      const s = p[mb.userId];
+      if (s) mb.status = s;
+    }
+  } catch {}
+}
+function pollPresenceForIsland(island){
+  if (!island.server.id || island.server.id.startsWith('demo-') || island.server.id === 'empty') return;
+  if (presencePollers.has(island.server.id)) return;
+  refreshPresenceForIsland(island);
+  const id = setInterval(() => refreshPresenceForIsland(island), 8000);
+  presencePollers.set(island.server.id, id);
+}
+
+// pre-load channels & members for the closest island (by horizontal distance)
+const loadedIslandIds = new Set();
+setInterval(() => {
+  if (!islands.length) return;
+  let best = null, bestD = Infinity;
+  for (const isl of islands){
+    const dx = isl.center.x - player.pos.x;
+    const dz = isl.center.y - player.pos.z;
+    const d = dx*dx + dz*dz;
+    if (d < bestD){ bestD = d; best = isl; }
+  }
+  if (best && !loadedIslandIds.has(best.server.id)){
+    loadedIslandIds.add(best.server.id);
+    loadChannelsForIsland(best).catch(()=>{});
+    loadMembersForIsland(best).catch(()=>{});
+  }
+}, 400);
+
+// click the on-screen Enter button
+enterBtn.addEventListener('click', () => {
+  if (nearestPortal && nearestIsland){
+    openChat(nearestIsland, nearestPortal.channel);
+  }
+});
+
+let openChatGen = 0;
+async function openChat(island, channel){
+  const myGen = ++openChatGen;
+  activeIsland = island;
+  activeChannel = channel;
+  controls.unlock();
+  chatEl.style.display = 'block';
+  blocker.style.display = 'none'; // hide login blocker behind chat
+  chatServer.textContent = island.name;
+  chatChName.textContent = channel.name;
+  chatNotice.style.display = 'none';
+
+  // If we already have channels cached, render the sidebar synchronously
+  // so it never visibly empties between renders.
+  if (island._channels && island._channels.length){
+    renderChannelSidebar(island, channel);
+  }
+
+  // sidebar (await full load — promise is de-duped if already in flight)
+  const channels = await loadChannelsForIsland(island);
+  if (myGen !== openChatGen) return; // a newer openChat won; bail out
+  renderChannelSidebar(island, channel, channels);
+
+  // messages
+  await loadMessages(channel);
+  if (myGen !== openChatGen) return;
+  setTimeout(() => chatInput.focus(), 50);
+}
+
+function renderChannelSidebar(island, activeCh, channels){
+  channels = channels || island._channels || [];
+  if (!channels.length) return; // never blank the sidebar
+  chatChannels.innerHTML = '';
+  for (const ch of channels){
+    const b = document.createElement('button');
+    b.className = 'ch' + (ch.id === activeCh.id ? ' active' : '');
+    b.innerHTML = `<span class="hash">#</span>${ch.name}`;
+    b.onclick = () => openChat(island, ch);
+    chatChannels.appendChild(b);
+  }
+}
+
+function closeChat(){
+  chatEl.style.display = 'none';
+  activeChannel = null;
+  // re-lock pointer so player can keep playing
+  setTimeout(() => controls.lock(), 50);
+}
+
+async function loadMessages(channel){
+  chatMessages.innerHTML = '<div class="empty">🌷 Listening to the breeze…</div>';
+  if (channel.stub){
+    chatMessages.innerHTML = '';
+    addLocalSystemMessage(`Welcome to the demo realm — this channel isn't connected to a real Discord server.`);
+    return;
+  }
+  try {
+    const r = await fetch(`/api/channels/${channel.id}/messages`);
+    if (!r.ok) throw new Error(String(r.status));
+    const msgs = await r.json();
+    chatMessages.innerHTML = '';
+    if (!msgs.length) addLocalSystemMessage('🦋 No messages yet.');
+    else msgs.slice().reverse().forEach(addMessage);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  } catch (e){
+    chatMessages.innerHTML = '';
+    chatNotice.style.display = 'block';
+    chatNotice.textContent = '🌼 Couldn\'t read this channel — Discord OAuth doesn\'t grant message access without a bot in the guild. (Channel name & sending may also fail.)';
+  }
+}
+
+function addMessage(m){
+  const div = document.createElement('div');
+  div.className = 'msg';
+  const img = m.author?.avatar
+    ? `<img src="${m.author.avatar}" alt="">`
+    : `<img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23c4a8ff'/></svg>" alt="">`;
+  div.innerHTML = `${img}<div><div class="who">${escapeHtml(m.author?.username || 'someone')}</div><div class="body">${escapeHtml(m.content || '')}</div></div>`;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function addLocalSystemMessage(text){
+  const div = document.createElement('div');
+  div.className = 'msg local';
+  div.innerHTML = `<img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%235865F2'/><text x='16' y='22' text-anchor='middle' fill='%23fff' font-size='18' font-family='sans-serif'>✦</text></svg>" alt=""><div><div class="who">fairy guide</div><div class="body">${escapeHtml(text)}</div></div>`;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+chatForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = chatInput.value.trim();
+  if (!text || !activeChannel) return;
+  chatInput.value = '';
+  if (activeChannel.stub){
+    addMessage({ author:{ username:'you' }, content:text });
+    return;
+  }
+  try {
+    const r = await fetch(`/api/channels/${activeChannel.id}/messages`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ content: text }),
+    });
+    if (!r.ok) throw new Error();
+    addMessage(await r.json());
+  } catch {
+    addLocalSystemMessage('Could not send. Bot needs `Send Messages` permission for this channel.');
+    addMessage({ author:{ username:'you (local only)' }, content:text });
+  }
+});
+chatClose.addEventListener('click', closeChat);
+addEventListener('keydown', e => {
+  if (e.code === 'Escape' && chatEl.style.display === 'block') closeChat();
+});
+
+// ---------- auth + data flow ----------
+async function tryLoadMe(){
+  const r = await fetch('/api/me');
+  if (!r.ok) return null;
+  return r.json();
+}
+
+async function loadGuilds(){
+  loading.style.display = 'flex';
+  try {
+    const r = await fetch('/api/guilds');
+    if (!r.ok) throw new Error('guilds_failed');
+    return await r.json();
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+function showInGameUI(){
+  hud.style.display = '';
+  fpsEl.style.display = '';
+  islandEl.style.display = '';
+}
+
+function showMe(me){
+  meBox.style.display = '';
+  meName.textContent = me.username;
+  if (me.avatar){ meAvatar.src = me.avatar; meAvatar.style.display = ''; }
+  else meAvatar.style.display = 'none';
+}
+
+function presentEnter(name, count){
+  loginPanel.style.display = 'none';
+  enterPanel.style.display = '';
+  enterName.textContent = name;
+  enterCount.textContent = count;
+  blocker.onclick = (e) => {
+    if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
+    controls.lock();
+  };
+}
+
+const DEMO_GUILDS = [
+  { id:'gaming-hq',  name:'Gaming HQ',  member_count_hint: 1500 },
+  { id:'dev-corner', name:'Dev Corner', member_count_hint: 800 },
+  { id:'study-zone', name:'Study Zone', member_count_hint: 300 },
+  { id:'art-club',   name:'Art Club',   member_count_hint: 600 },
+  { id:'music-bar',  name:'Music Bar',  member_count_hint: 1200 },
+  { id:'lore-keep',  name:'Lore Keep',  member_count_hint: 250 },
+];
+
+function enterDemoRealm(){
+  try {
+    // Make sure the login panel is visible state is reset (in case the
+    // user landed mid-flow), then build the demo world.
+    loginPanel.style.display = '';
+    enterPanel.style.display = 'none';
+    generateWorldFromGuilds(DEMO_GUILDS);
+    showInGameUI();
+    presentEnter('explorer', DEMO_GUILDS.length);
+  } catch (err){
+    console.error('demo realm failed to load', err);
+    alert('Could not load the demo realm — check the browser console.');
+  }
+}
+demoBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  enterDemoRealm();
+});
+
+// Show OAuth-unconfigured notice if the server bounced us back with the flag.
+if (new URLSearchParams(location.search).get('oauth') === 'unconfigured'){
+  const n = document.getElementById('oauth-notice');
+  if (n) n.style.display = '';
+}
+
+// ---------- in-app OAuth setup (no .env needed) ----------
+const setupEl     = document.getElementById('setup');
+const setupBtn    = document.getElementById('setup-btn');
+const setupCancel = document.getElementById('setup-cancel');
+const setupSave   = document.getElementById('setup-save');
+const setupCid    = document.getElementById('setup-cid');
+const setupSec    = document.getElementById('setup-sec');
+const setupBot    = document.getElementById('setup-bot');
+const setupErr    = document.getElementById('setup-err');
+const setupOk     = document.getElementById('setup-ok');
+const setupRedir  = document.getElementById('setup-redirect');
+
+async function openSetup(){
+  setupErr.style.display = 'none';
+  setupOk.style.display = 'none';
+  setupSec.value = '';
+  setupBot.value = '';
+  try {
+    const r = await fetch('/api/oauth-config');
+    if (r.ok){
+      const j = await r.json();
+      if (j.client_id) setupCid.value = j.client_id;
+      if (j.redirect_uri) setupRedir.textContent = j.redirect_uri;
+      if (j.bot_configured) setupBot.placeholder = '(bot token already saved — leave blank to keep)';
+    }
+  } catch {}
+  setupEl.style.display = 'flex';
+  setTimeout(() => setupCid.focus(), 0);
+}
+function closeSetup(){ setupEl.style.display = 'none'; }
+
+setupBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); openSetup(); });
+setupCancel.addEventListener('click', (e) => { e.preventDefault(); closeSetup(); });
+setupEl.addEventListener('click', (e) => { if (e.target === setupEl) closeSetup(); });
+
+setupSave.addEventListener('click', async (e) => {
+  e.preventDefault();
+  setupErr.style.display = 'none';
+  setupOk.style.display = 'none';
+  setupSave.disabled = true;
+  try {
+    const r = await fetch('/api/oauth-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: setupCid.value.trim(), client_secret: setupSec.value.trim(), bot_token: setupBot.value.trim() }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok){
+      setupErr.textContent = j.error || ('Save failed (HTTP ' + r.status + ')');
+      setupErr.style.display = 'block';
+      return;
+    }
+    setupOk.style.display = 'block';
+    setTimeout(() => { location.href = '/auth/login'; }, 350);
+  } catch (err){
+    setupErr.textContent = 'Network error: ' + err.message;
+    setupErr.style.display = 'block';
+  } finally {
+    setupSave.disabled = false;
+  }
+});
+
+logoutBtn.addEventListener('click', async () => {
+  await fetch('/auth/logout', { method:'POST' });
+  location.reload();
+});
+
+(async () => {
+  const me = await tryLoadMe();
+  if (!me) return; // stay on login panel
+  showMe(me);
+  let guilds = [];
+  try { guilds = await loadGuilds(); } catch { guilds = []; }
+  generateWorldFromGuilds(guilds);
+  showInGameUI();
+  presentEnter(me.username, guilds.length);
+})();
+</script>
+</body>
+</html>

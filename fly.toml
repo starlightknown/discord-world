@@ -1,0 +1,43 @@
+# Rename `app` to whatever Fly assigns when you run `fly launch`.
+app = "discord-world"
+primary_region = "iad"
+
+[build]
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+  CREDS_DIR = "/data"
+  # Set this to your prod URL after first deploy:
+  #   fly secrets set PUBLIC_URL=https://discord-world.fly.dev
+  # PUBLIC_URL = ""
+
+[[mounts]]
+  source = "discord_world_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 200
+    soft_limit = 150
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

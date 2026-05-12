@@ -1,0 +1,33 @@
+# Render blueprint — push this repo to GitHub, then in the Render dashboard:
+#   New → Blueprint → pick this repo → Apply.
+#
+# Free plan note: free web services sleep after 15 minutes of inactivity
+# and have no persistent disk. That means:
+#   - the discord.js Gateway socket reconnects on cold start (a few seconds
+#     of stale presence — fine for a hobby deploy)
+#   - cred storage in `.discord-creds.json` is wiped on restart, so set
+#     DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_BOT_TOKEN as env
+#     vars in the Render dashboard (or paste them in the in-app setup
+#     modal each cold start).
+services:
+  - type: web
+    name: discord-world
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: PUBLIC_URL
+        sync: false   # set this to https://<your-render-subdomain>.onrender.com after first deploy
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
+        sync: false
+      - key: DISCORD_BOT_TOKEN
+        sync: false
